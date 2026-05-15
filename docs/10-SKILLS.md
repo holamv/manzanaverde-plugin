@@ -1,14 +1,17 @@
 # 🎯 Skills del Plugin MV Dev
 
-El plugin incluye **12 skills** organizados en 3 categorías: Core, Acción y Conocimiento.
+El plugin incluye **22 skills** organizados en 5 categorías: Orquestación, Core, Acción, Conocimiento y Flutter/BDD.
 
 ## 📍 Mapa de Skills
 
-### Core (2) - Comienza aquí
+### Orquestación (1) - Empieza aquí ante cualquier tarea técnica
+- [`/mv-dev:mv-instruction-generator`](#mv-instruction-generator) - Workflow técnico: Discovery → Fix / Sprint / PRD
+
+### Core (2) - Descubrimiento y documentación
 - [`/mv-dev:discovery`](#discovery) - Descubrimiento técnico pre-proyecto
 - [`/mv-dev:mv-docs`](#mv-docs) - Buscar documentación en Notion
 
-### Acción (5) - Crear cosas
+### Acción (5) - Crear cosas (web)
 - [`/mv-dev:start-project`](#start-project) - Nuevo proyecto
 - [`/mv-dev:new-feature`](#new-feature) - Nueva feature
 - [`/mv-dev:new-page`](#new-page) - Nueva página Next.js
@@ -21,6 +24,19 @@ El plugin incluye **12 skills** organizados en 3 categorías: Core, Acción y Co
 - [`/mv-dev:mv-design-system`](#mv-design-system) - Design system
 - [`/mv-dev:mv-testing`](#mv-testing) - Estrategia de testing
 - [`/mv-dev:mv-deployment`](#mv-deployment) - Procedimientos de deployment
+
+### Flutter (6) - App móvil de MV
+- [`/mv-dev:flutter-architecture`](#flutter-architecture) - Arquitectura del proyecto Flutter
+- [`/mv-dev:flutter-visual-style`](#flutter-visual-style) - Design system en Flutter
+- [`/mv-dev:flutter-brand-identity`](#flutter-brand-identity) - Identidad de marca en Flutter
+- [`/mv-dev:flutter-new-feature`](#flutter-new-feature) - Nueva feature en Flutter
+- [`/mv-dev:flutter-new-screen`](#flutter-new-screen) - Nueva pantalla Flutter
+- [`/mv-dev:flutter-component`](#flutter-component) - Widget reutilizable Flutter
+
+### BDD / Gherkin (3) - Tests de aceptación
+- [`/mv-dev:notion-gherkin`](#notion-gherkin) - Notion → archivos Gherkin
+- [`/mv-dev:gherkin-to-tests`](#gherkin-to-tests) - Gherkin → tests ejecutables
+- [`/mv-dev:create-feature-file`](#create-feature-file) - Crear `.feature` desde Notion
 
 ---
 
@@ -372,6 +388,52 @@ Estos skills son **referencia**, no ejecutan acciones:
 
 ---
 
+---
+
+## Skill de Orquestación
+
+### mv-instruction-generator
+**Descripción:** Skill de entrada para cualquier tarea técnica en MV. Detecta automáticamente el modo correcto según el tipo de request y orquesta el ciclo Discovery→Plan→Ejecución→Reporte.
+
+**Cuándo usarlo:** Ante cualquier bug, feature, sprint, fix, refactor, instrumentación o problema técnico en repos de MV. También cuando se comparten reportes/logs/screenshots de problemas.
+
+**Los 4 modos que detecta automáticamente:**
+
+| Modo | Trigger | Comportamiento |
+|------|---------|---------------|
+| **A — PRD** | Request vago, ideación sin spec técnica | Preguntas de negocio → Brief → Modo C |
+| **B — Fix puntual** | 1-3 archivos, alcance claro | Discovery interno silencioso → ejecuta directo |
+| **C — Sprint** | Multi-archivo, arquitectura, riesgo de regresión | Discovery → Plan en .md → STOPs intermedios |
+| **D — Discovery puro** | "Investiga", "solo entender", incertidumbre fuerte | Solo read-only → reporte → pausa |
+
+**Filosofía inmutable:**
+1. Discovery siempre primero — nunca asumir estructura del código
+2. Cambios surgical, NO rewrites — fix puntual sobre refactor
+3. Guards de pago obligatorios — `git diff` antes de cada commit
+
+**Guards que verifica en cada commit:**
+```bash
+git diff --name-only | grep -E "checkout-utils|payment-errors|od-order|dailyfood|foodcourt|wallet|card-add|src/api/payment"
+# Esperado: VACÍO. Si aparece → ABORT.
+```
+
+**Ejemplo de uso:**
+```
+"Hay 138 errores 5xx en prod, investiga"
+→ Detecta Modo D (discovery puro)
+→ Genera DISCOVERY_5XX_ERRORS_2026-05-15.md con hallazgos
+
+"Cambia el copy del botón de pago a 'Confirmar pedido'"
+→ Detecta Modo B (fix puntual)
+→ Discovery interno → ejecuta → resumen en chat
+
+"Sprint: implementar funnel tracking completo"
+→ Detecta Modo C (sprint grande)
+→ Discovery + plan INSTRUCCION_FUNNEL_TRACKING.md + STOPs → ejecuta con aprobación
+```
+
+---
+
 ## 🚀 Patrones de Uso
 
 ### Flujo de Proyecto Nuevo
@@ -400,6 +462,254 @@ Estos skills son **referencia**, no ejecutan acciones:
 /mv-dev:mv-testing            ← Cómo testear
 /mv-dev:mv-deployment         ← Cómo deployar
 ```
+
+### Flujo Flutter (App Móvil)
+```
+1. /mv-dev:flutter-architecture    ← Definir/revisar arquitectura
+2. /mv-dev:flutter-visual-style    ← Configurar design system
+3. /mv-dev:flutter-new-screen      ← Crear pantallas
+4. /mv-dev:flutter-component       ← Crear widgets reutilizables
+5. /mv-dev:flutter-new-feature     ← Scaffold de feature completa
+```
+
+### Flujo BDD (Tests de Aceptación)
+```
+1. /mv-dev:notion-gherkin          ← Notion → archivos .feature
+2. /mv-dev:gherkin-to-tests        ← .feature → tests ejecutables
+```
+
+---
+
+## Skills de Flutter
+
+### flutter-architecture
+**Descripción:** Define o revisa la arquitectura de un proyecto Flutter de MV. Presenta opciones con ventajas y desventajas para que el equipo pueda decidir.
+
+**Cuándo usarlo:**
+- Al iniciar un nuevo proyecto Flutter
+- Cuando el proyecto crece y se vuelve difícil de mantener
+- Cuando hay dudas sobre dónde poner un archivo
+- Para revisar inconsistencias en la organización del código
+
+**Opciones que evalúa:**
+- Feature-first vs Layer-first
+- BLoC vs Riverpod vs GetX
+- Mono-repo vs multi-repo
+
+**Output típico:**
+```
+📐 Arquitectura Recomendada: Feature-first + BLoC
+
+lib/
+  core/
+    theme/       ← Design tokens MV
+    navigation/  ← Router
+    network/     ← Dio client
+  features/
+    auth/
+      data/      ← API calls
+      domain/    ← Business logic
+      presentation/ ← Screens + BLoC
+    orders/
+      ...
+```
+
+---
+
+### flutter-visual-style
+**Descripción:** Configura y audita el design system de MV en Flutter — colores, tipografía, spacing, border radius.
+
+**Cuándo usarlo:**
+- Al iniciar un proyecto Flutter
+- Para verificar que los tokens de MV están bien configurados
+- Cuando hay inconsistencias visuales
+
+**Qué verifica:**
+- Paleta de colores (`mv-green-500` = `#227A4B`)
+- Tipografía (Inter para headings, Nunito para body)
+- Border radius (12px base = `Radius.circular(12)`)
+- Spacing (múltiplos de 4px)
+
+**Genera:**
+```dart
+// lib/core/theme/mv_colors.dart
+class MVColors {
+  static const green500 = Color(0xFF227A4B);
+  static const green600 = Color(0xFF1D6A41);
+  static const orange500 = Color(0xFFE85D04);
+  // ...
+}
+```
+
+---
+
+### flutter-brand-identity
+**Descripción:** Revisa identidad de marca en Flutter — logo, íconos, tono del texto, animaciones, splash screen.
+
+**Cuándo usarlo:**
+- Al configurar una nueva app Flutter de MV
+- Para auditar que la app sigue los lineamientos de marca
+- Cuando cambia la identidad visual de MV
+
+**Qué verifica:**
+- Splash screen con logo MV
+- Ícono de app correcto
+- Tono del copy (amigable, motivador, saludable)
+- Animaciones sutiles (no exageradas)
+- Fuentes correctas cargadas en `pubspec.yaml`
+
+---
+
+### flutter-new-feature
+**Descripción:** Scaffold completo de una nueva feature en Flutter siguiendo la arquitectura del proyecto existente.
+
+**Cuándo usarlo:**
+- Agregar funcionalidad nueva a la app móvil
+- Necesitas estructura completa: data + domain + presentation
+
+**Lo que genera:**
+```
+features/
+  [nombre]/
+    data/
+      [nombre]_api.dart           ← Llamadas HTTP
+      [nombre]_repository_impl.dart
+    domain/
+      [nombre]_repository.dart    ← Interface
+      models/[nombre]_model.dart
+      usecases/get_[nombre].dart
+    presentation/
+      screens/[nombre]_screen.dart
+      bloc/[nombre]_bloc.dart
+      widgets/
+    test/
+      [nombre]_test.dart
+```
+
+---
+
+### flutter-new-screen
+**Descripción:** Crea una pantalla Flutter completa con navegación correcta, design tokens de MV, todos los estados visuales y widget tests.
+
+**Cuándo usarlo:**
+- Agregar una pantalla nueva a la app
+- Recibir un diseño de Figma para implementar
+- Refactorizar una pantalla existente
+
+**Estados que implementa:**
+- Loading (shimmer/skeleton)
+- Error (con botón de reintentar)
+- Empty (estado vacío)
+- Data (contenido real)
+
+**Genera:**
+```dart
+class OrdersScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<OrdersBloc, OrdersState>(
+      builder: (context, state) {
+        return switch (state) {
+          OrdersLoading() => const OrdersShimmer(),
+          OrdersError(:final message) => ErrorView(message: message, onRetry: ...),
+          OrdersEmpty() => const EmptyOrders(),
+          OrdersLoaded(:final orders) => OrdersList(orders: orders),
+        };
+      },
+    );
+  }
+}
+```
+
+---
+
+### flutter-component
+**Descripción:** Crea un widget reutilizable con design tokens de MV, variantes y widget tests.
+
+**Cuándo usarlo:**
+- Crear un botón, card, badge, input reutilizable
+- Extraer UI repetida en un widget compartido
+
+**Convenciones:**
+- Ubicar en `lib/core/widgets/` si es compartido por múltiples features
+- Ubicar en `lib/features/[nombre]/presentation/widgets/` si es específico de la feature
+- Siempre incluir widget tests
+
+---
+
+## Skills de BDD / Gherkin
+
+### notion-gherkin
+**Descripción:** Obtiene requerimientos de Notion (o `docs/BUSINESS_LOGIC.md`) y genera archivos `.feature` en formato Gherkin con edge cases específicos del negocio de MV.
+
+**Cuándo usarlo:**
+- Definir criterios de aceptación para una feature nueva
+- Traducir un PRD o user story de Notion a tests de aceptación
+- El equipo de QA necesita `.feature` files para BDD
+
+**Requisitos:**
+- `NOTION_TOKEN` configurado (si la fuente es Notion)
+
+**Edge cases que incluye automáticamente:**
+- Multi-país (PE, CO, MX, CL) con diferencias de comportamiento
+- Plan vencido / sin suscripción activa
+- Sin cobertura de delivery en la zona
+- Sin stock del producto
+
+**Output:**
+```gherkin
+# features/orders/create-order.feature
+Feature: Crear una orden de delivery
+  Como usuario con suscripción activa
+  Quiero crear una orden de comida
+  Para recibirla en mi domicilio
+
+  Scenario: Orden creada exitosamente
+    Given el usuario tiene suscripción activa en "PE"
+    And hay stock disponible del producto
+    When el usuario crea una orden con 2 items
+    Then la orden queda en estado "pending"
+    And se programa la entrega
+
+  Scenario: Error por plan vencido
+    Given el usuario tiene suscripción vencida
+    When el usuario intenta crear una orden
+    Then se muestra "Tu plan ha vencido. Renueva para continuar"
+```
+
+---
+
+### gherkin-to-tests
+**Descripción:** Lee archivos `.feature` en `features/` y genera tests ejecutables (Jest, RTL, Playwright) según el tipo de escenario.
+
+**Cuándo usarlo:**
+- Después de `/mv-dev:notion-gherkin`
+- Cuando tienes `.feature` files sin implementación de tests
+- Para convertir BDD en código ejecutable
+
+**Clasificación automática:**
+| Tipo de escenario | Framework |
+|-------------------|-----------|
+| Flujo completo de usuario | Playwright E2E |
+| Interacción UI / estados de componente | React Testing Library |
+| Carga de datos / errores de red | RTL + MSW |
+| Funciones puras / hooks / cálculos | Jest / Vitest Unit |
+
+**Requisitos:**
+- Archivos `.feature` en `features/` (creados con `/mv-dev:notion-gherkin`)
+
+---
+
+### create-feature-file
+**Descripción:** Busca una feature en Notion, extrae los requerimientos y genera un archivo `.feature` Gherkin listo para BDD.
+
+**Cuándo usarlo:**
+- Cuando conoces el nombre de la feature en Notion y quieres un `.feature` directo
+- Similar a `notion-gherkin` pero más directo: busca en Notion y genera el archivo
+
+**Diferencia con `notion-gherkin`:**
+- `notion-gherkin`: guía interactiva paso a paso, con preguntas
+- `create-feature-file`: más automatizado, busca en Notion y genera directamente
 
 ---
 

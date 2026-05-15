@@ -19,8 +19,8 @@ Acceso rápido a todos los workflows y guías disponibles.
 
 ---
 
-### Crear una Feature Nueva
-**Cuando:** Necesitas agregar funcionalidad a un proyecto existente
+### Crear una Feature Nueva (Web)
+**Cuando:** Necesitas agregar funcionalidad a un proyecto web existente
 
 **Duración:** 5-30 minutos (según complejidad)
 
@@ -130,6 +130,35 @@ Acceso rápido a todos los workflows y guías disponibles.
 
 ---
 
+---
+
+### Crear una Pantalla Flutter
+**Cuando:** Trabajas en la app móvil de MV y necesitas una pantalla nueva
+
+**Duración:** 5-15 minutos
+
+**Pasos principales:**
+1. El Flutter Orchestrator se activa automáticamente
+2. Ejecutar `/mv-dev:flutter-architecture` si el proyecto es nuevo
+3. Ejecutar `/mv-dev:flutter-new-screen` para la pantalla
+
+**Ir a:** [Skills Flutter](10-SKILLS.md#flutter-architecture)
+
+---
+
+### Crear Tests de Aceptación BDD
+**Cuando:** Necesitas criterios de aceptación para una feature, o quieres convertir Gherkin a tests
+
+**Duración:** 5-10 minutos
+
+**Pasos principales:**
+1. Ejecutar `/mv-dev:notion-gherkin` - Notion → archivos `.feature`
+2. Ejecutar `/mv-dev:gherkin-to-tests` - `.feature` → tests ejecutables
+
+**Ir a:** [Skills BDD](10-SKILLS.md#notion-gherkin)
+
+---
+
 ## 📖 Guías de Referencia
 
 ### Configuración Inicial
@@ -137,10 +166,10 @@ Acceso rápido a todos los workflows y guías disponibles.
 - [Configuración Completa de Tokens](03-SETUP.md)
 
 ### Componentes del Plugin
-- [Todos los 12 Skills](10-SKILLS.md)
+- [Todos los 22 Skills](10-SKILLS.md)
 - [Los 7 MCP Servers](20-MCP_SERVERS.md)
 - [Los 6 Hooks de Validación](30-HOOKS.md)
-- [Los 4 Agentes Especializados](40-AGENTS.md)
+- [Los 7 Agentes Especializados](40-AGENTS.md)
 
 ### Estándares y Diseño
 - [Design System Completo](DESIGN_SYSTEM.md)
@@ -162,7 +191,7 @@ Acceso rápido a todos los workflows y guías disponibles.
 
 ### Necesito entender cómo funciona el plugin
 1. **Arquitectura:** [Cómo está estructurado](02-ARCHITECTURE.md)
-2. **Skills:** [Los 12 skills disponibles](10-SKILLS.md)
+2. **Skills:** [Los 22 skills disponibles](10-SKILLS.md)
 3. **MCP Servers:** [Qué son y cómo se usan](20-MCP_SERVERS.md)
 
 ### Necesito crear algo ahora
@@ -253,4 +282,4 @@ Acceso rápido a todos los workflows y guías disponibles.
 
 ---
 
-**Última actualización:** 2026-03-16
+**Última actualización:** 2026-05-15

@@ -159,7 +159,7 @@ export DB_ACCESS_TYPE="mysql"
 
 **Ejemplos:**
 ```bash
-export DB_ACCESS_HOST="db.staging.manzanaverde.io"
+export DB_ACCESS_HOST="your-db-host.example.com"
 export DB_ACCESS_HOST="192.168.1.100"
 export DB_ACCESS_HOST="localhost"  # local dev
 ```

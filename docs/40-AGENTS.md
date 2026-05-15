@@ -1,6 +1,6 @@
 # 🤖 Agentes Especializados del Plugin MV Dev
 
-El plugin incluye **4 agentes especializados** que automatizan tareas de QA, Frontend, Backend y Documentación.
+El plugin incluye **7 agentes especializados** que automatizan tareas de QA, Frontend, Backend, Documentación, Flutter y BDD.
 
 ## ¿Qué es un Agente?
 
@@ -16,7 +16,7 @@ Un agente es un **asistente especializado** que actúa de forma autónoma dentro
 
 ---
 
-## 4 Agentes Disponibles
+## 7 Agentes Disponibles
 
 ### 1. QA Agent (Agente de Calidad)
 **Especialidad:** Garantizar que el código está correctamente testeado.
@@ -274,18 +274,165 @@ Manual fixes needed: 2
 
 ---
 
+---
+
+### 5. Flutter Orchestrator (Agente de App Móvil)
+**Especialidad:** Coordinar el desarrollo Flutter de la app móvil de MV.
+
+**Responsabilidades:**
+- ✅ Detectar automáticamente trabajo en proyectos Flutter/Dart
+- ✅ Coordinar los 6 skills de Flutter según la situación
+- ✅ Definir o revisar arquitectura Flutter
+- ✅ Aplicar design system de MV en Flutter (colores, tipografía, spacing)
+- ✅ Crear pantallas con todos los estados (loading, error, empty, data)
+- ✅ Crear widgets reutilizables con tokens de MV
+- ✅ Revisar identidad de marca (logo, animaciones, splash)
+
+**Cuándo se activa automáticamente:**
+- El usuario menciona archivos `.dart`, `pubspec.yaml`, `main.dart`
+- Se usan palabras clave: "flutter", "dart", "widget", "BLoC", "riverpod"
+- Se menciona "pantalla de la app", "app móvil de MV"
+- Se editan archivos `.dart` en el proyecto
+
+**Skills que coordina:**
+```
+flutter-architecture    ← Definir estructura del proyecto
+flutter-visual-style    ← Configurar design tokens
+flutter-brand-identity  ← Revisar identidad de marca
+flutter-new-screen      ← Crear pantallas completas
+flutter-new-feature     ← Scaffold de feature Flutter
+flutter-component       ← Widgets reutilizables
+```
+
+**Ejemplo de uso:**
+```
+Usuario: "Crea una pantalla de historial de órdenes en Flutter"
+
+🤖 Flutter Orchestrator se activa:
+1. Lee la arquitectura actual (pubspec.yaml, lib/)
+2. Identifica el patrón en uso (BLoC / Riverpod)
+3. Invoca flutter-new-screen con el patrón correcto
+4. Genera pantalla con:
+   - OrdersHistoryScreen
+   - OrdersBloc + OrdersState + OrdersEvent
+   - OrdersShimmer (loading)
+   - ErrorView con retry
+   - Widget tests
+
+Output:
+📄 lib/features/orders/presentation/screens/orders_history_screen.dart
+📄 lib/features/orders/presentation/bloc/orders_bloc.dart
+📄 test/features/orders/orders_history_test.dart
+```
+
+---
+
+### 6. Notion Gherkin Agent (Agente de BDD)
+**Especialidad:** Generar archivos Gherkin (`.feature`) a partir de requerimientos de Notion.
+
+**Responsabilidades:**
+- ✅ Buscar documentación de features en Notion (via MCP)
+- ✅ Extraer requerimientos, actores y flujos
+- ✅ Generar archivos `.feature` con escenarios Gherkin
+- ✅ Incluir edge cases específicos de MV (multi-país, plan vencido, sin stock)
+- ✅ Crear estructura `features/` si no existe
+
+**Cuándo se activa:**
+- El usuario pide "generar Gherkin", "crear .feature", "traducir a BDD"
+- El usuario invoca `/mv-dev:notion-gherkin` o `/mv-dev:create-feature-file`
+- Se menciona BDD, Cucumber, criterios de aceptación
+
+**Edge cases que incluye siempre:**
+- Multi-país: comportamiento diferente en PE, CO, MX, CL
+- Plan vencido: usuario sin suscripción activa
+- Sin cobertura: dirección fuera del área de delivery
+- Sin stock: producto no disponible
+
+**MCP Servers que usa:**
+- `notion` — para leer documentación de features
+- `mv-docs` — para contexto de APIs existentes
+
+**Ejemplo de uso:**
+```
+Usuario: "Genera los Gherkin para el módulo de pagos"
+
+🤖 Notion Gherkin Agent:
+1. Busca "payments" en Notion
+2. Lee la página y sub-páginas de requerimientos
+3. Extrae flujos de usuario y actores
+4. Genera:
+
+features/payments/
+  process-payment.feature     ← Flujo principal
+  payment-errors.feature      ← Edge cases de error
+  payment-by-country.feature  ← Diferencias por país
+```
+
+---
+
+### 7. Gherkin Test Generator Agent (Agente de Tests BDD)
+**Especialidad:** Convertir archivos `.feature` Gherkin en tests ejecutables.
+
+**Responsabilidades:**
+- ✅ Leer y parsear todos los `.feature` en `features/`
+- ✅ Clasificar escenarios por tipo de test óptimo
+- ✅ Generar tests Jest / RTL / Playwright según el tipo
+- ✅ Seguir los estándares de testing de MV
+- ✅ Reportar cobertura de escenarios
+
+**Cuándo se activa:**
+- El usuario pide "generar tests desde Gherkin", "convertir .feature a tests"
+- El usuario invoca `/mv-dev:gherkin-to-tests`
+- Hay archivos `.feature` en `features/` sin tests correspondientes
+
+**Clasificación automática de escenarios:**
+| Escenario | Framework elegido |
+|-----------|------------------|
+| Flujo completo de usuario (multi-página) | Playwright E2E |
+| Interacción UI, estados de componente | React Testing Library |
+| Carga de datos desde API | RTL + MSW |
+| Funciones puras, hooks, cálculos | Jest / Vitest Unit |
+
+**Ejemplo de uso:**
+```
+Usuario: "Genera los tests a partir de features/payments/"
+
+🤖 Gherkin Test Generator:
+1. Lee features/payments/*.feature
+2. Clasifica 12 escenarios:
+   - 3 → Playwright E2E (flujos completos)
+   - 6 → RTL + MSW (carga de datos)
+   - 3 → Jest Unit (validaciones)
+3. Genera:
+
+__tests__/
+  e2e/payments.spec.ts           ← Playwright
+  components/PaymentForm.test.tsx ← RTL
+  services/paymentService.test.ts ← Jest
+
+Reporte:
+✅ 12 escenarios cubiertos
+⚠️ 2 escenarios con edge cases adicionales sugeridos
+```
+
+---
+
 ## 📊 Matriz de Responsabilidades
 
-| Aspecto | QA Agent | Frontend | Backend | Doc Agent |
-|---------|----------|----------|---------|-----------|
-| **Testing** | ✅ | - | - | - |
-| **Coverage** | ✅ | - | - | - |
-| **Design System** | - | ✅ | - | - |
-| **Accessibility** | - | ✅ | - | - |
-| **API Patterns** | - | - | ✅ | - |
-| **Security** | ⚠️ | - | ✅ | - |
-| **Documentation** | - | - | - | ✅ |
-| **Changelog** | - | - | - | ✅ |
+| Aspecto | QA Agent | Frontend | Backend | Doc Agent | Flutter | Notion Gherkin | Gherkin Tests |
+|---------|----------|----------|---------|-----------|---------|----------------|---------------|
+| **Testing** | ✅ | - | - | - | - | - | ✅ |
+| **Coverage** | ✅ | - | - | - | - | - | - |
+| **Design System (Web)** | - | ✅ | - | - | - | - | - |
+| **Design System (Flutter)** | - | - | - | - | ✅ | - | - |
+| **Accessibility** | - | ✅ | - | - | - | - | - |
+| **API Patterns** | - | - | ✅ | - | - | - | - |
+| **Security** | ⚠️ | - | ✅ | - | - | - | - |
+| **Documentation** | - | - | - | ✅ | - | - | - |
+| **Changelog** | - | - | - | ✅ | - | - | - |
+| **Flutter Screens** | - | - | - | - | ✅ | - | - |
+| **Gherkin Files** | - | - | - | - | - | ✅ | - |
+| **BDD → Tests** | - | - | - | - | - | - | ✅ |
 
 ---
 
