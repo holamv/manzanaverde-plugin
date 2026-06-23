@@ -53,6 +53,42 @@ EOF
 fi
 # --- fin gate tiered; cambios no criticos siguen el flujo permisivo de abajo ---
 
+# --- SP2: doc-gate tiered ---
+# Reusa $CHANGED detectado arriba.
+# Codigo de producto no-trivial: src/** excluyendo tests/specs/md/config
+PROD_CODE="$(printf '%s\n' "$CHANGED" | grep -E '^src/' | grep -Ev '\.(test|spec)\.|\.test\.|\.spec\.|\.md$|\.json$|\.yaml$|\.yml$|\.env' || true)"
+# Cambios en docs/
+DOCS_CHANGED="$(printf '%s\n' "$CHANGED" | grep -E '^docs/' || true)"
+
+if [ -n "$PROD_CODE" ] && [ -z "$DOCS_CHANGED" ]; then
+  # Heuristica de "nueva capacidad": algun archivo de src/ es nuevo en este push
+  NEW_FILES="$(git diff --name-status "@{upstream}"..HEAD 2>/dev/null || git diff --name-status HEAD~1..HEAD 2>/dev/null || git diff --name-status)"
+  NEW_SRC="$(printf '%s\n' "$NEW_FILES" | awk '$1=="A"{print $2}' | grep -E '^src/' | grep -Ev '\.(test|spec)\.|\.test\.|\.spec\.|\.md$' || true)"
+
+  # Heuristica BUG: si todos los archivos modificados son de fix/patch (sin nuevos archivos de src)
+  if [ -n "$NEW_SRC" ]; then
+    # Capacidad nueva sin delta en docs/ → BLOQUEAR
+    echo ""
+    echo "📄 Doc-gate: cambio en capacidad nueva sin delta en docs/"
+    echo "   Archivos de producto nuevos sin docs/ actualizado:"
+    printf '%s\n' "$NEW_SRC" | while IFS= read -r _f; do [ -n "$_f" ] && printf '   %s\n' "$_f"; done
+    echo ""
+    echo "   Agregá el delta a docs/ (ver /mv-dev:new-feature Paso 5) antes de hacer push."
+    echo "   Si es realmente una BUG/trivial sin doc necesaria, bypasseá con:"
+    echo "     git push --no-verify"
+    echo "   (Si omitís el gate con --no-verify, el hook no corre y nada queda registrado.)"
+    exit 1
+  else
+    # Refactor/modificacion sin archivos nuevos → solo avisar, no bloquear
+    echo ""
+    echo "⚠️  Doc-gate: refactor/modificacion en src/ sin cambios en docs/."
+    echo "   Si agregaste comportamiento nuevo, considera un delta en docs/ antes del PR."
+    echo "   (Continuando — no bloquea para cambios internos/refactor.)"
+    echo ""
+  fi
+fi
+# --- fin doc-gate SP2 ---
+
 # 2. Run tests
 echo "[2/3] Running tests..."
 if [ -f "package.json" ]; then

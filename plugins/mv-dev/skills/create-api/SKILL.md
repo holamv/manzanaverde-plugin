@@ -241,6 +241,15 @@ Antes de crear tests, clasificá el cambio (BUG / BET / RESUME) y consultá **`/
 - **RESUME (delta en progreso)** → mismo flujo que BET por superficie, pero testeá solo el delta nuevo.
 - **Chequeá cobertura existente** (grep tests/__tests__/*.spec/*.test) antes de escribir; no dupliques.
 
+## Paso 0b — Leé contexto antes de construir
+
+Antes de scaffoldear el endpoint, leé el contexto relevante para el area que vas a tocar:
+
+1. **docs/ del proyecto** (si existe): leé `API.md`, `TABLES.md`, `BUSINESS_LOGIC.md`. Si `docs/` no existe, lo crearás al final (create-once; no re-docs ahora).
+2. **Cerebro del mirror** (`~/Projects/manzana-verde-os/`): leé `producto/ingenieria/data-dictionary.md` y `CONVENTIONS.md` para el recurso que vas a exponer. El SessionStart hook ya lo mantuvo fresco.
+3. **NO re-fetchees Notion** para lo que ya esté en el mirror local — es redundante y quema tokens.
+4. Con este contexto, confirmá nombres de tablas, convenciones de respuesta y campos antes de escribir codigo.
+
 ## Paso 3: Tests (para BET/capacidad nueva; ver Paso 0)
 
 ```typescript
@@ -299,15 +308,19 @@ describe('[Recurso] API', () => {
 });
 ```
 
-## Paso 4: Actualizar docs/ (OBLIGATORIO)
+## Paso 4: Actualizar docs/ — Append del DELTA (OBLIGATORIO para BET)
 
-Despues de crear el endpoint, SIEMPRE actualizar la documentacion del proyecto:
+**Regla**: NO reescribas el archivo entero. Agregá o editá SOLO las secciones que tu cambio tocó.
 
-1. **Si `docs/` no existe**: crearlo con la estructura completa (ver doc-agent)
-2. **Si `docs/` ya existe**: actualizar:
+- **BUG / trivial**: doc mínima (una línea en CHANGELOG.md) o ninguna si es cosmético.
+- **BET / capacidad nueva**: append del delta — entradas nuevas en los archivos afectados, nada más.
+- **RESUME (delta en progreso)**: solo documenta el delta nuevo, no lo que ya estaba.
+
+1. **Si `docs/` no existe**: crearlo completo ahora (create-once; ver doc-agent). A partir de aquí siempre existirá.
+2. **Si `docs/` ya existe**: editá SOLO las secciones afectadas (no el archivo entero):
 
 ```markdown
-# En docs/API.md agregar:
+# Agregar en docs/API.md (solo el endpoint nuevo):
 ## [Recurso]
 
 ### [METHOD] /api/v1/[recurso]s
@@ -317,19 +330,19 @@ Despues de crear el endpoint, SIEMPRE actualizar la documentacion del proyecto:
 - **Response [status]**: { success: true, data: ... }
 - **Response [error status]**: { success: false, error: "..." }
 
-# En docs/TABLES.md agregar (si creo tablas nuevas):
+# Agregar en docs/TABLES.md (solo si hay tablas nuevas):
 ## [tabla]
 | Columna | Tipo | Descripcion |
 ...
 
-# En docs/CHANGELOG.md agregar:
+# Agregar en docs/CHANGELOG.md (solo la entrada nueva):
 ## [fecha] - Claude
 - ✅ Endpoint [METHOD] /api/v1/[recurso]s: [descripcion]
 ```
 
 3. Marcar el estado: ✅ si esta completo con tests, 🚧 si falta algo
 
-4. **Actualizar `docs/PROJECT_SCOPE.md`** (SIEMPRE):
+4. **Actualizar `docs/PROJECT_SCOPE.md`** — SOLO las lineas que cambiaron:
    - Incrementar version y actualizar fecha
    - Agregar el endpoint en funcionalidades (✅/🚧)
    - Actualizar seccion de APIs consumidas/expuestas
