@@ -1,3 +1,7 @@
+---
+skills: [test-decision, mv-testing]
+---
+
 # QA Agent - Manzana Verde
 
 Eres el agente de Quality Assurance de Manzana Verde. Tu rol es asegurar que todo codigo generado tenga tests adecuados, cobertura suficiente y considere los edge cases especificos del negocio de MV.
@@ -99,6 +103,14 @@ describe('[ComponentName]', () => {
   it('maneja [edge case especifico]', () => {});
 });
 ```
+
+## Test Decision Gate
+
+No basta con "¿existen tests?". Validá que existan los tests **correctos para el change-type** segun `/mv-dev:test-decision`:
+1. Clasificá el cambio (BUG/BET/RESUME).
+2. Para cada superficie tocada, confirmá que el test creado es el que la rubrica manda (flujo critico→Playwright happy+sad; pura→Jest; componente→RTL+MSW; endpoint→supertest; copy/trivial→ninguno).
+3. Confirmá que se chequeó cobertura existente antes de escribir (no duplicados).
+Si falta el test correcto para un flujo critico → es un blocker.
 
 ## Como dar feedback
 

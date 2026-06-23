@@ -26,6 +26,33 @@ else
 fi
 echo ""
 
+# --- SP5: gate tiered de flujo critico ---
+CRITICAL_RE='checkout|PagoForm|payment|od-order|dailyfood|foodcourt|wallet|card-add|api/payment|auth|login|registro|membership_charges'
+CHANGED="$(git diff --name-only "@{upstream}"..HEAD 2>/dev/null || git diff --name-only HEAD~1..HEAD 2>/dev/null || git diff --name-only)"
+CRIT="$(printf '%s\n' "$CHANGED" | grep -Ei "$CRITICAL_RE" | grep -Ev '\.(spec|test)\.|\.feature$' || true)"
+if [ -n "$CRIT" ]; then
+  COV=""
+  # heuristica (no analisis real): test cambiado en el push...
+  printf '%s\n' "$CHANGED" | grep -Eiq '\.(spec|test)\.|\.feature$' && COV=1
+  # ...o existe un test cuyo nombre matchea el modulo critico cambiado
+  if [ -z "$COV" ]; then
+    while IFS= read -r f; do
+      [ -z "$f" ] && continue
+      base="$(basename "$f" | sed -E 's/\.(tsx?|jsx?)$//')"
+      if find . -path ./node_modules -prune -o -type f \( -name "*${base}*.spec.*" -o -name "*${base}*.test.*" \) -print 2>/dev/null | grep -q .; then COV=1; break; fi
+    done <<EOF
+$CRIT
+EOF
+  fi
+  if [ -z "$COV" ]; then
+    echo "❌ Cambio en flujo critico sin test que lo cubra:"
+    printf '%s\n' "$CRIT" | while IFS= read -r _f; do [ -n "$_f" ] && printf '   %s\n' "$_f"; done
+    echo "   Agregá/tocá un test (ver /mv-dev:test-decision) o justificá el skip explicitamente."
+    exit 1
+  fi
+fi
+# --- fin gate tiered; cambios no criticos siguen el flujo permisivo de abajo ---
+
 # 2. Run tests
 echo "[2/3] Running tests..."
 if [ -f "package.json" ]; then

@@ -59,7 +59,15 @@ src/features/[feature-name]/
 └── index.ts
 ```
 
-## Paso 3: Flujo TDD
+## Paso 0 — Clasificar y consultar la rubrica (antes de scaffoldear tests)
+
+Antes de crear tests, clasificá el cambio (BUG / BET / RESUME) y consultá **`/mv-dev:test-decision`**:
+- **BUG / trivial** (copy, color, config) → solo test de regresion del defecto, o **ninguno** si es trivial. NO scaffoldees tests de feature nueva.
+- **BET (capacidad nueva)** → seguí el flujo TDD de abajo, eligiendo el tipo de test por superficie segun la rubrica.
+- **RESUME (delta en progreso)** → mismo flujo que BET por superficie, pero testeá solo el delta nuevo.
+- **Chequeá cobertura existente** (grep tests/__tests__/*.spec/*.test) antes de escribir; no dupliques.
+
+## Paso 3: Flujo TDD (para BET/capacidad nueva; ver Paso 0)
 
 ### 3.1 Tipos primero
 
@@ -82,7 +90,7 @@ export interface [FeatureName]State {
 }
 ```
 
-### 3.2 Tests primero (RED)
+### 3.2 Tests primero (RED) (para BET/capacidad nueva; ver Paso 0)
 
 Escribir tests que fallen:
 

@@ -2,6 +2,17 @@
 
 Todos los cambios notables del plugin mv-dev se documentan aqui.
 
+## [1.7.0] - 2026-06-23
+
+### Added
+- **Test Decision Rubric** (`/mv-dev:test-decision`): nueva skill canonica que decide que/cuando testear — clasificador BUG/BET/RESUME, matriz change-type × superficie → artefacto de test, matriz mock-vs-real con Regla de oro, regla "cobertura primero" y lista "cuando NO testear". Fuente unica; todo lo demas la referencia.
+- **Gate ligero en build skills** (`new-feature`, `create-api`, `new-page`): Paso 0 de clasificacion + consulta a `/mv-dev:test-decision` insertado antes del paso de creacion de tests en cada skill. TDD sigue siendo el default para BET; BUG/trivial dejan de recibir scaffold ciego.
+- **Test Decision Gate en `qa-agent`**: seccion nueva que valida que existan los tests *correctos por change-type* (no solo "que haya tests"), con `skills: [test-decision]` en frontmatter.
+- **Gate tiered en `validate-pre-push.sh`**: falla solo cuando un cambio de flujo critico (checkout/payment/auth/login/registro/etc.) no tiene cobertura detectable. Cambios no criticos mantienen el flujo permisivo (`--passWithNoTests`).
+
+### Changed
+- `skills/mv-testing/SKILL.md`: cross-link al inicio apuntando a `/mv-dev:test-decision` para la decision de que/cuando testear.
+
 ## [1.6.0] - 2026-02-24
 
 ### Added

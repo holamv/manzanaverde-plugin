@@ -4,6 +4,8 @@ description: Como escribir tests en el stack de Manzana Verde - Jest, React Test
 
 # Testing en Manzana Verde
 
+> Para DECIDIR que/cuando testear (y cuando NO) → `/mv-dev:test-decision`. Este doc cubre el **como** escribir cada test.
+
 Guia para escribir tests correctos y mantener cobertura en el stack de MV.
 
 ## Piramide de Testing
