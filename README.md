@@ -1,4 +1,4 @@
-# MV Dev - Plugin de Claude Code para Manzana Verde
+# MV Dev - Plugin de Claude Code para Manzana Verde 
 
 Plugin de Claude Code que permite a cualquier miembro del equipo de Manzana Verde crear proyectos de software de forma segura, consistente y alineada con los estandares de la empresa, sin necesidad de experiencia en programacion.
 
