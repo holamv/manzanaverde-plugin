@@ -215,8 +215,8 @@ Cuando el usuario pide actualizar la documentacion explicitamente:
 
 La sincronizacion de `docs/` a Notion se ejecuta en **dos situaciones**:
 
-1. **Automatico en git push**: Cada vez que se hace `git push`, sincronizar `docs/` a Notion antes del push
-2. **On demand**: Cuando el usuario pide explicitamente sincronizar, subir docs, push docs, etc.
+1. **Gate de pre-push**: Si se pusheó codigo nuevo de producto, el hook de pre-push (`validate-pre-push.sh`) avisa si falta doc. No hay hook de `git commit` en el plugin — el enforcement vive en pre-push.
+2. **On demand**: Cuando el usuario pide explicitamente sincronizar, subir docs, push docs, etc. Usar `/mv-dev:doc-agent` para lanzar el sync.
 
 **REGLA ABSOLUTA:** NUNCA sugerir alternativas manuales, herramientas externas, ni decir que "es complejo". El sync se hace con las herramientas MCP de Notion disponibles. Si algo falla, reintentar o informar el error especifico, pero NUNCA rendirse.
 
@@ -266,13 +266,25 @@ Si no esta configurado: informar al usuario con las instrucciones de setup y det
 Leer docs/API.md (o el archivo que corresponda)
 ```
 
-**4b. Limpiar la sub-pagina existente en Notion:**
+**4b. Actualizar la sub-pagina en Notion — delta, no reescritura completa:**
 ```
-1. Llamar API-get-block-children con block_id = ID de la sub-pagina
-2. Obtener la lista de bloques hijos (cada uno tiene un "id")
-3. Para CADA bloque hijo: llamar API-delete-a-block con block_id = id del bloque
-   (si hay muchos bloques, eliminarlos EN PARALELO para mayor velocidad)
-4. Resultado: la sub-pagina queda vacia, lista para recibir contenido nuevo
+REGLA: NO borrar todos los bloques y reescribir. Aplicar solo el delta.
+
+1. Leer el archivo local (docs/API.md o el que corresponda)
+2. Leer los bloques actuales: API-get-block-children con block_id = ID de la sub-pagina
+3. Identificar que secciones cambiaron (comparar contenido local vs bloques existentes)
+4. Para CADA seccion que cambio:
+   a. Si es una seccion nueva → API-patch-block-children (append al final o en la posicion correcta)
+   b. Si es una seccion existente que cambio → API-update-a-block para los bloques afectados,
+      o API-delete-a-block solo para los bloques de esa seccion + API-patch-block-children para reescribirla
+5. Dejar intactas las secciones que no cambiaron
+Resultado: la sub-pagina refleja el delta, con minimo uso de tokens y sin destruir historia.
+```
+
+**Cuando hacer reescritura completa** (unico caso valido):
+```
+Solo si el archivo local cambio completamente (ej: nuevo proyecto, reestructuracion total).
+En ese caso: get-children → delete-each → patch-new-children (orden obligatorio).
 ```
 
 **4c. Convertir el markdown a bloques de Notion y escribirlos:**
@@ -358,9 +370,9 @@ Docs sincronizados a Notion:
 
 1. **NUNCA** poner un link al archivo .md de GitHub en vez del contenido. SIEMPRE replicar el contenido completo.
 2. **NUNCA** sugerir "copiar manualmente", "usar herramienta externa", o "es muy complejo". Hacerlo con las herramientas MCP disponibles.
-3. **NUNCA** dejar contenido viejo en la sub-pagina. SIEMPRE limpiar (delete all blocks) antes de escribir.
+3. **NUNCA** borrar y reescribir toda la sub-pagina salvo que el archivo local haya cambiado completamente. SIEMPRE aplicar el delta (ver paso 4b).
 4. **NUNCA** rendirse si un paso falla. Reintentar o informar el error especifico al usuario.
-5. **SIEMPRE** limpiar primero, escribir despues. El orden es: get-children → delete-each → patch-new-children.
+5. **SIEMPRE** leer antes de escribir. El orden es: get-children → identificar delta → update/append solo lo que cambio.
 6. **SIEMPRE** respetar el limite de 100 bloques por llamada. Dividir si es necesario.
 7. La fuente de verdad es `docs/`. Notion es el respaldo. El contenido en Notion debe ser un reflejo fiel de `docs/`.
 

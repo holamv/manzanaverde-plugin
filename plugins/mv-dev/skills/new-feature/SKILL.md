@@ -59,7 +59,24 @@ src/features/[feature-name]/
 └── index.ts
 ```
 
-## Paso 3: Flujo TDD
+## Paso 0 — Clasificar y consultar la rubrica (antes de scaffoldear tests)
+
+Antes de crear tests, clasificá el cambio (BUG / BET / RESUME) y consultá **`/mv-dev:test-decision`**:
+- **BUG / trivial** (copy, color, config) → solo test de regresion del defecto, o **ninguno** si es trivial. NO scaffoldees tests de feature nueva.
+- **BET (capacidad nueva)** → seguí el flujo TDD de abajo, eligiendo el tipo de test por superficie segun la rubrica.
+- **RESUME (delta en progreso)** → mismo flujo que BET por superficie, pero testeá solo el delta nuevo.
+- **Chequeá cobertura existente** (grep tests/__tests__/*.spec/*.test) antes de escribir; no dupliques.
+
+## Paso 0b — Leé contexto antes de construir
+
+Antes de scaffoldear, leé el contexto relevante para el area que vas a tocar:
+
+1. **docs/ del proyecto** (si existe): leé los archivos afectados (`COMPONENTS.md`, `API.md`, `ARCHITECTURE.md`, `BUSINESS_LOGIC.md`). Si `docs/` no existe, lo crearás al final (create-once; no re-docs ahora).
+2. **Cerebro del mirror** (`~/Projects/manzana-verde-os/`): leé `producto/ingenieria/data-dictionary.md` y `CONVENTIONS.md` para el area que tocás. El SessionStart hook ya lo mantuvo fresco.
+3. **NO re-fetchees Notion** para lo que ya esté en el mirror local — es redundante y quema tokens.
+4. Con este contexto, ajustá la estructura de la feature (nombres, patrones, convenciones MV) antes de escribir codigo.
+
+## Paso 3: Flujo TDD (para BET/capacidad nueva; ver Paso 0)
 
 ### 3.1 Tipos primero
 
@@ -82,7 +99,7 @@ export interface [FeatureName]State {
 }
 ```
 
-### 3.2 Tests primero (RED)
+### 3.2 Tests primero (RED) (para BET/capacidad nueva; ver Paso 0)
 
 Escribir tests que fallen:
 
@@ -135,30 +152,34 @@ import { [featureName]Routes } from '@/features/[feature-name]';
 router.use('/api/v1/[feature-name]', [featureName]Routes);
 ```
 
-## Paso 5: Actualizar docs/ (OBLIGATORIO)
+## Paso 5: Actualizar docs/ — Append del DELTA (OBLIGATORIO para BET)
 
-Despues de completar la feature, SIEMPRE actualizar la documentacion del proyecto:
+**Regla**: NO reescribas el archivo entero. Agregá o editá SOLO las secciones que tu cambio tocó.
 
-1. **Si `docs/` no existe**: crearlo con la estructura completa (ver doc-agent)
-2. **Si `docs/` ya existe**: actualizar los archivos afectados:
+- **BUG / trivial**: doc mínima (una línea en CHANGELOG.md) o ninguna si es cosmético.
+- **BET / capacidad nueva**: append del delta de lo que construiste — entradas nuevas en los archivos afectados, nada más.
+- **RESUME (delta en progreso)**: solo documenta el delta nuevo, no lo que ya estaba.
 
-**Frontend feature:**
+1. **Si `docs/` no existe**: crearlo completo ahora (create-once; ver doc-agent). A partir de aquí siempre existirá.
+2. **Si `docs/` ya existe**: editá SOLO las secciones afectadas (no el archivo entero):
+
+**Frontend feature — delta:**
 ```markdown
-# En docs/COMPONENTS.md agregar:
+# Agregar en docs/COMPONENTS.md (solo la seccion nueva):
 ## [FeatureName]
 - Ubicacion: `src/features/[feature-name]/`
 - Componentes: [FeatureName], [SubComponents]
 - Hooks: use[FeatureName]
 - APIs que consume: [listar endpoints]
 
-# En docs/CHANGELOG.md agregar:
+# Agregar en docs/CHANGELOG.md (solo la entrada nueva):
 ## [fecha] - Claude
 - ✅ Feature [FeatureName]: [descripcion corta]
 ```
 
-**Backend feature:**
+**Backend feature — delta:**
 ```markdown
-# En docs/API.md agregar:
+# Agregar en docs/API.md (solo el recurso nuevo):
 ## [FeatureName]
 ### GET /api/v1/[feature-name]
 - Auth: Required
@@ -170,27 +191,26 @@ Despues de completar la feature, SIEMPRE actualizar la documentacion del proyect
 - Body: { campo1, campo2 }
 - Response 201: { success, data }
 
-# En docs/TABLES.md agregar (si aplica):
+# Agregar en docs/TABLES.md (solo si hay tablas nuevas):
 ## [tabla]
 | Columna | Tipo | Descripcion |
 ...
 
-# En docs/CHANGELOG.md agregar:
+# Agregar en docs/CHANGELOG.md (solo la entrada nueva):
 ## [fecha] - Claude
 - ✅ Feature [FeatureName]: [descripcion corta]
 ```
 
-**Full-stack feature:** actualizar `COMPONENTS.md` + `API.md` + `TABLES.md` + `CHANGELOG.md`
+**Full-stack feature:** delta en `COMPONENTS.md` + `API.md` + `TABLES.md` (si aplica) + `CHANGELOG.md`
 
-3. **Marcar estado de funcionalidades** en el archivo correspondiente:
+3. **Marcar estado de funcionalidades** en el archivo correspondiente (solo la linea nueva o cambiada):
    - ✅ Funcionalidad completada y con tests
    - 🚧 Funcionalidad parcialmente implementada (WIP)
    - ❌ Funcionalidad pendiente
 
-4. **Actualizar `docs/PROJECT_SCOPE.md`** (SIEMPRE):
-   - Incrementar version
-   - Actualizar fecha
-   - Agregar/mover la feature en la seccion de funcionalidades (✅/🚧/❌)
+4. **Actualizar `docs/PROJECT_SCOPE.md`** — SOLO las lineas que cambiaron:
+   - Incrementar version y actualizar fecha
+   - Agregar/mover la feature en funcionalidades (✅/🚧/❌)
    - Actualizar estructura de archivos si cambio
 
 ## Paso 6: PR Description

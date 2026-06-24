@@ -180,7 +180,24 @@ export default function Error({ error, reset }: ErrorProps) {
 }
 ```
 
-## Paso 6: Test de la pagina
+## Paso 0 — Clasificar y consultar la rubrica (antes de scaffoldear tests)
+
+Antes de crear tests, clasificá el cambio (BUG / BET / RESUME) y consultá **`/mv-dev:test-decision`**:
+- **BUG / trivial** (copy, color, config) → solo test de regresion del defecto, o **ninguno** si es trivial. NO scaffoldees tests de feature nueva.
+- **BET (capacidad nueva)** → seguí el flujo TDD de abajo, eligiendo el tipo de test por superficie segun la rubrica.
+- **RESUME (delta en progreso)** → mismo flujo que BET por superficie, pero testeá solo el delta nuevo.
+- **Chequeá cobertura existente** (grep tests/__tests__/*.spec/*.test) antes de escribir; no dupliques.
+
+## Paso 0b — Leé contexto antes de construir
+
+Antes de scaffoldear la pagina, leé el contexto relevante para el area que vas a tocar:
+
+1. **docs/ del proyecto** (si existe): leé `COMPONENTS.md`, `ARCHITECTURE.md`, `BUSINESS_LOGIC.md`. Si `docs/` no existe, lo crearás al final (create-once; no re-docs ahora).
+2. **Cerebro del mirror** (`~/Projects/manzana-verde-os/`): leé `producto/ingenieria/data-dictionary.md` y `CONVENTIONS.md` para el area de la pagina. El SessionStart hook ya lo mantuvo fresco.
+3. **NO re-fetchees Notion** para lo que ya esté en el mirror local — es redundante y quema tokens.
+4. Con este contexto, confirmá rutas existentes, design tokens, patrones de layout MV antes de escribir codigo.
+
+## Paso 6: Test de la pagina (para BET/capacidad nueva; ver Paso 0)
 
 ```tsx
 // __tests__/[pageName].test.tsx
@@ -196,28 +213,32 @@ describe('[PageName] Page', () => {
 });
 ```
 
-## Paso 7: Actualizar docs/ (OBLIGATORIO)
+## Paso 7: Actualizar docs/ — Append del DELTA (OBLIGATORIO para BET)
 
-Despues de crear la pagina, SIEMPRE actualizar la documentacion del proyecto:
+**Regla**: NO reescribas el archivo entero. Agregá o editá SOLO las secciones que tu cambio tocó.
 
-1. **Si `docs/` no existe**: crearlo con la estructura completa (ver doc-agent)
-2. **Si `docs/` ya existe**: actualizar:
+- **BUG / trivial**: doc mínima (una línea en CHANGELOG.md) o ninguna si es cosmético.
+- **BET / capacidad nueva**: append del delta — entradas nuevas en los archivos afectados, nada más.
+- **RESUME (delta en progreso)**: solo documenta el delta nuevo, no lo que ya estaba.
+
+1. **Si `docs/` no existe**: crearlo completo ahora (create-once; ver doc-agent). A partir de aquí siempre existirá.
+2. **Si `docs/` ya existe**: editá SOLO las secciones afectadas (no el archivo entero):
 
 ```markdown
-# En docs/COMPONENTS.md agregar en la seccion "Paginas":
+# Agregar en docs/COMPONENTS.md (solo la entrada nueva en la seccion "Paginas"):
 - `/[ruta]` - [PageName]: [descripcion de la pagina]
   - Tipo: Server Component | Client Component
   - Data fetching: [si/no, de donde]
   - Auth: [requerida/publica]
 
-# En docs/CHANGELOG.md agregar:
+# Agregar en docs/CHANGELOG.md (solo la entrada nueva):
 ## [fecha] - Claude
 - ✅ Pagina [ruta]: [descripcion corta]
 ```
 
 3. Marcar el estado: ✅ si esta completa, 🚧 si es WIP
 
-4. **Actualizar `docs/PROJECT_SCOPE.md`** (SIEMPRE):
+4. **Actualizar `docs/PROJECT_SCOPE.md`** — SOLO las lineas que cambiaron:
    - Incrementar version y actualizar fecha
    - Agregar la pagina en funcionalidades (✅/🚧)
    - Actualizar estructura de archivos con la nueva ruta
