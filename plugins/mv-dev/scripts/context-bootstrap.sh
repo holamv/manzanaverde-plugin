@@ -4,6 +4,30 @@
 # o lo clona si no existe. El stdout se inyecta como contexto para Claude.
 # FAIL-SOFT: cualquier error de red/git sale con exit 0 para no bloquear la sesion.
 
+# ============================================================================
+# COMPANY BRAIN — USO OBLIGATORIO (se inyecta SIEMPRE, base del desarrollo MV)
+# Este bloque va primero para que se propague en cada sesion sin depender del mirror.
+# ============================================================================
+cat <<'BRAIN'
+=== COMPANY BRAIN — USO OBLIGATORIO Y PROACTIVO ===
+Todo el desarrollo de MV se basa en el Company Brain. Usa estos skills de forma
+PROACTIVA (no esperes que te los invoquen): cuando el trabajo sea una iniciativa,
+experimento, apuesta, tarea, CR o campaña, aplica el skill correspondiente.
+
+  - Nueva iniciativa / experimento / apuesta / BET  -> /exp-iniciativa
+      (crea fila en el datalake `experiments` + Issue Notion, vinculada a KPI/input)
+  - Tareas / Change Requests                         -> /crear-cr  (Notion + Discord)
+  - Editar un experimento en curso                   -> /editar-experimento
+  - Medir / cerrar en la fecha de evaluacion         -> /informe-resultados
+  - Consultar un KPI o input (360)                   -> /kpi-context
+  - Campaña CRM                                       -> /proponer-campana -> /ejecutar-campana -> /generar-lista-manychat
+
+REGLA DE ORO: toda entidad (iniciativa/CR/campaña/issue) se vincula SIEMPRE a un
+KPI o input del catalogo del datalake (dris_definitions / dris_inputs). Nada suelto.
+Lo estructurado del Brain vive en el HUB de Notion (marcador Company Brain=true).
+====================================================
+BRAIN
+
 MIRROR_DIR="$HOME/Projects/manzana-verde-os"
 MIRROR_REPO="https://github.com/holamv/manzana-verde-os"
 LAST_SYNCED_FILE="$MIRROR_DIR/.last_synced"

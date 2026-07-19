@@ -30,6 +30,19 @@ claude plugin add https://github.com/manzanaverde/manzanaverde-plugin
 - `/mv-dev:create-api` - Nuevo endpoint Express con validacion
 - `/mv-dev:deploy-staging` - Deploy a staging con verificaciones
 
+**Company Brain (BizOps) — uso estandar para iniciativas medibles:**
+> Regla: toda iniciativa/experimento se convierte en fila estructurada del datalake, **siempre vinculada a un KPI o input** del catalogo (`dris_definitions` / `dris_inputs`). No crear iniciativas sueltas fuera de este flujo.
+- `/mv-dev:exp-iniciativa` - Crea iniciativa/experimento estructurado + baseline + diseno estadistico; persiste en `experiments` (Supabase) y crea/vincula el Issue en Notion
+- `/mv-dev:crear-cr` - Crea Change Requests / tareas con routing a canales Discord reales
+- `/mv-dev:editar-experimento` - Edita un experimento existente (link Notion o exp_id) sin re-crearlo; sync tri-destino datalake + Notion + Discord
+- `/mv-dev:informe-resultados` - Cierra el ciclo de medicion en la fecha de evaluacion (resultado, impacto, insight)
+- `/mv-dev:kpi-context` - Vista 360 de un KPI o input (valores reales, tendencia, feeds cross-KPI). Consultar antes de crear/editar
+
+**Campañas CRM (Growth) — proponer → ejecutar → medir:**
+- `/mv-dev:proponer-campana` - Propone campaña completa (público, volumen, horario, copy) desde género + tema
+- `/mv-dev:ejecutar-campana` - Ejecuta la campaña (ManyChat WhatsApp/Correo o BackOffice Banner/Modal/Card/Push) y registra el experimento con objetivo explícito
+- `/mv-dev:generar-lista-manychat` - Genera insumos ManyChat (CSV opt-in/dedup + JSON con CTA + hora sugerida)
+
 ### Agentes (4)
 
 - **QA Agent** - Genera tests, valida cobertura, identifica edge cases

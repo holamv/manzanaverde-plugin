@@ -2,6 +2,21 @@
 
 Todos los cambios notables del plugin mv-dev se documentan aqui.
 
+## [1.8.0] - 2026-07-18
+
+### Added
+- **Suite Company Brain** (5 skills nuevas): convierten toda iniciativa/experimento en fila estructurada del datalake, siempre vinculada a un KPI o input. Fuente: reqs Carlos 2026-07-17 (Company Brain v2).
+  - `exp-iniciativa`: crea iniciativa/experimento estructurado, captura baseline del datalake, propone diseno estadistico, persiste en tabla `experiments` (Supabase `hzpycmczwkwbfrqzvfyz`) y crea/vincula el Issue en Notion (plantilla issue). Bifurca a `mv-instruction-generator` si area tech; co-llama `crear-cr`; cierra con `informe-resultados`.
+  - `crear-cr`: crea Change Requests / tareas con routing a canales Discord reales (CR de iniciativa/issue -> #weekly-exec-okrs; CR interno cross-team -> #crs-*; BET software -> #iniciativas-tech).
+  - `editar-experimento`: edita un experimento existente (link Notion o exp_id) sin re-crearlo, con guard de etapa (Propuesta/En curso editable, Medido bloqueado salvo force). Sincroniza tri-destino: datalake + Notion (plantilla issue) + Discord.
+  - `informe-resultados`: cierra el ciclo de medicion en `fecha_evaluacion` (z-score, veredicto), escribe resultado/impacto/insight en el experiment.
+  - `kpi-context`: vista 360 de un KPI o input (valores reales de `dris_input_actuals`, tendencia, feeds cross-KPI). Consulta antes de crear/editar.
+- **Regla auto-link KPI/input**: toda entidad del Brain debe vincularse a un KPI o input del catalogo del datalake (`dris_definitions` 145 KPIs / `dris_inputs` 662 inputs). Hard-gate en creacion (score >=0.15 o kpi_definition_id explicito o allow_no_kpi=true).
+- **Suite Campañas CRM (Growth)** (3 skills): `proponer-campana` (propone campaña completa + copy desde genero+tema), `ejecutar-campana` (ejecuta ManyChat o BackOffice y registra el experimento), `generar-lista-manychat` (insumos CSV+JSON para ManyChat). Se integran con el datalake (endpoints /api/planner) y registran experiments igual que el Brain.
+
+### Changed
+- README/CLAUDE del plugin: los skills del Company Brain quedan como parte del kit estandar de BizOps/Ops, uso recomendado para todo trabajo de iniciativas medibles.
+
 ## [1.7.0] - 2026-06-23
 
 ### Added
