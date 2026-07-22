@@ -12,7 +12,7 @@ trigger_phrases:
   - "info del input"
   - "browse kpi"
   - "detalle kpi"
-version: 1.0.0
+version: 1.1.0
 owner: Julio Mori
 based_on:
   - Regla auto-link KPI/input (Julio 2026-07-11)
@@ -136,10 +136,22 @@ Cuando devuelvas contexto al usuario:
 - ✅ `/api/dris/lookup` para búsqueda previa (search_inputs + include_inputs)
 - ⚠️ `datalake_gold` stale (W9) — para valores frescos el endpoint usa `dris_input_actuals`
 
+## Rol en Company Brain v2 (Carlos 2026-07-21) — capa RAG por KPI
+
+En el marco de 4 capas, **`kpi-context` ES la recuperación de contexto por KPI (≈RAG) de la Capa 2**: al arrancar, un agente recupera del brain el contexto ligado al KPI (definición + inputs con valores reales + experiments previos que lo mueven + medición histórica) **antes** de crear o editar. Es el **Paso 0** del resto de skills.
+
+**Contrato Paso 0 (RAG por KPI):**
+```
+exp-iniciativa / editar-experimento / crear-cr
+   → Paso 0: kpi-context(kpi_id | input) recupera contexto del brain
+   → luego estructuran y escriben (evita duplicar + trae baseline)
+```
+No re-crea data: solo recupera. La verdad de los números vive en el datalake (Capa 1).
+
 ## Vinculación con otros skills
 
 ```
-kpi-context (consulta)
+kpi-context (Paso 0 · RAG por KPI)
   ├── exp-iniciativa (paso 2) usa la misma taxonomía para hard-gate KPI
   ├── crear-cr hereda kpi_definition_id
   └── informe-resultados lee experiments del KPI
@@ -147,6 +159,7 @@ kpi-context (consulta)
 
 ## Changelog
 
+- **v1.1.0 (2026-07-21)** — Company Brain v2 (Carlos): documentado el rol como capa RAG por KPI (Capa 2) + contrato Paso 0 que consumen los otros skills. Sin cambios de endpoint (la función ya era la recuperación por KPI).
 - **v1.0.0 (2026-07-16)** — Build inicial P2 Sprint
   - Modo KPI: definición + inputs con valores + experiments + medición
   - Modo INPUT: serie temporal + cross-KPI feeds + otras ciudades
