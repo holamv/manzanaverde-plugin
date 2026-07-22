@@ -1,9 +1,10 @@
 ---
 name: crear-cr
 description: |
-  Crea Change Requests (CRs) e Iniciativas en Discord + Notion. Routing por (tipo, area):
-  BET/Iniciativa software → #iniciativas-tech, issues líder → #issues-líderes,
-  CRs cross-equipos → canales crs-* específicos. Tag obligatorio del responsable con <@id>.
+  Crea Change Requests (CRs) e Iniciativas en Discord + Notion. Routing v1.8:
+  tarea de reunión semanal → #weekly-exec-okrs; issue/iniciativa tech → #iniciativas-tech;
+  issue no-tech → #issues-líderes/#issues-general; CR cross-equipos → canales crs-* específicos.
+  Tag obligatorio del responsable con <@id>.
   Notion: Tasks DB para BETs, Issues a Discord DB para issues clásicos.
 trigger_phrases:
   - "/crear-cr"
@@ -11,7 +12,7 @@ trigger_phrases:
   - "crear iniciativa discord"
   - "nuevo change request"
   - "abrir CR para"
-version: 1.7.1
+version: 1.8.0
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/04-skill-crear-cr.md
@@ -23,12 +24,13 @@ based_on:
 
 > Sprint Company Brain — cable iniciativa/issue → Discord + Notion.
 >
-> **Reglas clave v1.5.0 (revisadas tras validación E2E real):**
+> **Reglas clave v1.8.0 (routing ajustado Julio 2026-07-21):**
 > 1. **🔥 REGLA CRÍTICA — 1 tarea = 1 CR = 1 Notion task = 1 Discord thread.** Si la iniciativa tiene N acciones, hay que crear N threads separados (no 1 thread con todas las acciones dentro). Cada CR es atómico: tiene su propia Notion page, su propio responsable, su propio deadline, su propio DoD.
-> 2. **Visibilidad ejecutiva** — CR vinculado a `exp_id`/`issue_id` → `#weekly-exec-okrs`.
-> 3. **BET dev consolidado** — `tipo='BET'` + area∈software → `#iniciativas-tech` (canal especializado, único caso donde se consolida 1 thread por OWNER con bullets).
-> 4. **CR interno cross-equipos** — sin iniciativa de fondo → canal `#crs-*` específico.
-> 5. **Thread directo** (sin parent message) — `POST /channels/{id}/threads` type=`11`. Naming MV exacto.
+> 2. **Reunión semanal** — tarea que sale de una Weekly Exec (`es_weekly=true`) → `#weekly-exec-okrs`. Se crean con `crear-cr` directo cuando hay contexto de la reunión.
+> 3. **Issue/iniciativa tech** (software · Producto/Tech/Growth-Tech) → `#iniciativas-tech`.
+> 4. **Issue no-tech** → `#issues-líderes` (owner líder o estratégico) o `#issues-general` (equipo).
+> 5. **CR interno cross-equipos** con acuerdo previo → canal `#crs-*` específico (6 canales, ver mapping).
+> 6. **Thread directo** (sin parent message) — `POST /channels/{id}/threads` type=`11`. Naming MV exacto.
 
 ## Server + bot
 
@@ -36,48 +38,53 @@ based_on:
 - **Bot:** `CRS#6481` — ID `1493662108431417354` — Token en `~/.claude.json` (MCP discord) o env `DISCORD_BOT_TOKEN`
 - **Acceso del bot:** Send Messages + Create Threads + Read Message History en todas las categorías relevantes
 
-## Routing v1.3.0 — flujo de decisión
+## Routing v1.8.0 — flujo de decisión (ajuste Julio 2026-07-21)
+
+**Prioridad — primer match gana:**
 
 ```
-                  ┌─ tipo='BET' AND area∈software ──► #iniciativas-tech
-                  │
-exp_id OR issue_id ┼─ tipo='BET'/'issue'/'iniciativa' (no-software) ──► #weekly-exec-okrs
-                  │
-                  └─ tipo='weekly-cr' ──────────────► #weekly-exec-okrs
+1. Tarea de REUNIÓN SEMANAL  (es_weekly=true / tipo='weekly-cr' / hay contexto de la weekly)
+       ──► #weekly-exec-okrs
 
-Sin exp_id NI issue_id (CR interno entre equipos):
-   tipo='cross-equipos' + cr_pair específico ──► canal #crs-* correspondiente
-   Sin cr_pair, owner=líder ──► #issues-líderes (legacy n8n flow)
-   Sin cr_pair, owner≠líder ──► #issues-general (legacy n8n flow)
-   Default fallback ──► #weekly-exec-okrs
+2. Issue/iniciativa TECH  (software · area ∈ {Producto, Tech, Growth-Tech} · tipo='BET' software)
+       ──► #iniciativas-tech
+
+3. CR interno cross-equipos con acuerdo previo  (cr_pair específico)
+       ──► #crs-<par> correspondiente
+
+4. Issue NO-tech (default):
+       owner ∈ líderes  o  estrategico=true  ──► #issues-líderes
+       resto (equipo)                        ──► #issues-general
 ```
 
 **Resumen narrativo:**
-- CR de iniciativa BET dev (Producto/Tech) → `#iniciativas-tech` (canal especializado).
-- CR vinculado a cualquier iniciativa/issue registrado → `#weekly-exec-okrs` (visibilidad ejecutiva, Carlos lo ve el lunes).
-- CR específico interno entre personas/equipos (sin iniciativa de fondo) → canal `#crs-*` correspondiente.
-- Issue puro standalone (sin exp ni weekly) → `#issues-líderes`/`#issues-general` (legacy).
+- **Tareas que salen de una reunión semanal** (Weekly Exec) → `#weekly-exec-okrs`. Se crean con `crear-cr` directo cuando hay contexto de la reunión (`es_weekly=true`).
+- **Issue/iniciativa que va por tech** (software) → `#iniciativas-tech`.
+- **Issue no-tech** → `#issues-líderes` (owner es líder o estratégico) o `#issues-general` (equipo).
+- **CR interno cross-equipos** con acuerdo previo → `#crs-*` correspondiente.
+
+> ⚠️ **Cambio v1.4.0:** weekly YA NO es el default de toda iniciativa/issue. `#weekly-exec-okrs` es **solo** para tareas que salen de una reunión semanal. Las iniciativas/issues se enrutan por su naturaleza: **tech → iniciativas-tech**, **no-tech → issues-líderes/general**.
 
 ## Mapping canales — REAL
 
-### Canal principal de visibilidad ejecutiva
+### Canal de reunión semanal
 
 | Canal | ID | Cuándo |
 |-------|----|--------|
-| **`#weekly-exec-okrs`** | `1407016069503258674` | **DEFAULT** para CRs vinculados a iniciativa/issue, weekly Exec acta, tipo='weekly-cr' |
+| **`#weekly-exec-okrs`** | `1407016069503258674` | **Solo** tareas que salen de una reunión semanal (Weekly Exec), `es_weekly=true` |
 
-### Canal especializado BET dev
+### Canal tech (issue/iniciativa software)
 
 | Canal | ID | Categoría |
 |-------|----|-----------|
-| **`#iniciativas-tech`** | `959484680137211964` | 🛠️ Tech y Producto — solo para `tipo='BET' AND area∈software` |
+| **`#iniciativas-tech`** | `959484680137211964` | 🛠️ Tech y Producto — issue/iniciativa que va por tech (software · area Producto/Tech/Growth-Tech) |
 
-### Issues clásicos (n8n legacy, sin exp/issue link)
+### Issues NO-tech (default para issues que no van por tech)
 
 | Canal | ID | Cuándo |
 |-------|----|--------|
-| `#issues-líderes` | `1504224713038368788` | Issue puro standalone + owner ∈ líderes |
-| `#issues-general` | `1506685505872461856` | Issue puro standalone + owner no líder |
+| `#issues-líderes` | `1504224713038368788` | Issue no-tech · owner ∈ líderes o `estrategico=true` |
+| `#issues-general` | `1506685505872461856` | Issue no-tech · equipo general |
 
 ### CRs cross-equipos internos (uso interno entre personas — override `cr_pair`)
 
@@ -90,7 +97,7 @@ Sin exp_id NI issue_id (CR interno entre equipos):
 | `finanzas-ventas-atc-mkt` | `#crs-finanzas-ventas-atc-marketing` | `1504608724386447480` | Coordinación cross-funcional |
 | `ops-interno` | `#crs-operaciones-interno` | `1506689003267690526` | Ops interno |
 
-> **Solo usar `#crs-*` cuando el CR es coordinación específica entre personas/equipos SIN iniciativa de fondo.** Si está vinculado a un experiment_id o issue_id, ir a `#weekly-exec-okrs`.
+> **Solo usar `#crs-*` cuando el CR es coordinación específica entre equipos con acuerdo previo.** Los 6 canales `#crs-*` siguen vigentes (arriba). Una tarea de reunión semanal va a `#weekly-exec-okrs`; un issue tech a `#iniciativas-tech`; un issue no-tech a `#issues-líderes`/`#issues-general`.
 
 ## Mecanismo de publicación
 
@@ -134,6 +141,7 @@ const LEADERS = {
 | `Status` | status (`To Do`/`Doing`/`Waiting For`/`Done`) | `To Do` inicial |
 | `Fecha Deadline` | date | fecha_evaluacion |
 | `KPI number` | multi-select | `["27","64",...]` (strings) |
+| `Company Brain` | checkbox | **siempre `true`** — marca para las vistas filtradas del sub-mundo Brain en el HUB |
 | `Issue Inventory (Tasks)` | relation → Issue Inventory `202fb2dd` | **task de iniciativa: setear = `[issue_page_id]` del experimento.** CR libre: vacío |
 | `👥 Feedback archive - MV` | relation → `eca0b04f` | opcional, link al resumen padre |
 
@@ -783,35 +791,34 @@ NOTION_HEADERS = {
 
 SOFTWARE_AREAS = {'Producto', 'Tech', 'Growth - Producto', 'Growth - Tech'}
 
-def route_channel(tipo, area, owner_dri, owner_notion_id=None, cr_pair=None, exp_id=None, issue_id=None):
-    """Routing v1.3.0 — visibilidad ejecutiva por default cuando hay link a iniciativa/issue."""
-    # 1. BET software → canal especializado
-    if tipo == 'BET' and area in SOFTWARE_AREAS:
+def route_channel(tipo, area, owner_dri, owner_notion_id=None, cr_pair=None,
+                  es_weekly=False, estrategico=False, exp_id=None, issue_id=None):
+    """Routing v1.4.0 (ajuste Julio 2026-07-21). Prioridad, primer match gana:
+       1. tarea de reunion semanal -> #weekly-exec-okrs
+       2. issue/iniciativa tech (software) -> #iniciativas-tech
+       3. CR interno cross-equipos con acuerdo (cr_pair) -> #crs-*
+       4. issue no-tech -> #issues-lideres (lider/estrategico) | #issues-general
+       weekly YA NO es el default de toda iniciativa/issue."""
+    # 1. Tarea de reunion semanal
+    if es_weekly or tipo == 'weekly-cr':
+        return CHANNELS['weekly_exec_okrs'], '#weekly-exec-okrs'
+
+    # 2. Issue/iniciativa tech (software)
+    if area in SOFTWARE_AREAS:
         return CHANNELS['iniciativas_tech'], '#iniciativas-tech'
 
-    # 2. weekly-cr explícito
-    if tipo == 'weekly-cr':
-        return CHANNELS['weekly_exec_okrs'], '#weekly-exec-okrs'
-
-    # 3. Vinculado a iniciativa/issue → weekly (visibilidad ejecutiva)
-    if exp_id or issue_id or tipo in ('BET', 'iniciativa', 'issue'):
-        return CHANNELS['weekly_exec_okrs'], '#weekly-exec-okrs'
-
-    # 4. cross-equipos interno (sin iniciativa de fondo)
-    if tipo == 'cross-equipos' and cr_pair:
+    # 3. CR interno cross-equipos con acuerdo previo
+    if cr_pair:
         key = 'crs_' + cr_pair.replace('-', '_').replace('foodcourt', 'fc').replace('ventas_atc_mkt', 'fin_ventas')
         if key in CHANNELS:
             return CHANNELS[key], f"#{key.replace('_', '-')}"
 
-    # 5. issue-legacy (n8n flow)
-    if tipo == 'issue-legacy':
-        is_leader = (owner_notion_id and any(L['notion'] == owner_notion_id for L in LEADERS.values())) \
-            or owner_dri in LEADERS
-        return (CHANNELS['issues_lideres'], '#issues-líderes') if is_leader \
-            else (CHANNELS['issues_general'], '#issues-general')
-
-    # 6. Fallback
-    return CHANNELS['weekly_exec_okrs'], '#weekly-exec-okrs'
+    # 4. Issue no-tech (default): lider/estrategico -> lideres, resto -> general
+    is_leader = estrategico \
+        or (owner_notion_id and any(L['notion'] == owner_notion_id for L in LEADERS.values())) \
+        or owner_dri in LEADERS
+    return (CHANNELS['issues_lideres'], '#issues-líderes') if is_leader \
+        else (CHANNELS['issues_general'], '#issues-general')
 
 
 def resolve_responsable_tag(owner_dri, owner_discord_id=None):
@@ -979,10 +986,11 @@ def render_thread_body(tipo, name, tag, owner_dri, acciones, kpi, meta, fecha, n
     return "\n".join(lines)
 
 
-def build_tasks_props(name, owner_notion_id, fecha_evaluacion, kpi_numbers):
+def build_tasks_props(name, owner_notion_id, fecha_evaluacion, kpi_numbers, issue_page_id=None):
     p = {
         "Tasks": {"title": [{"text": {"content": name}}]},
         "Status": {"status": {"name": "To Do"}},
+        "Company Brain": {"checkbox": True},   # marca para vistas filtradas del sub-mundo Brain en el HUB
     }
     if owner_notion_id:
         p["Responsable"] = {"people": [{"id": owner_notion_id}]}
@@ -990,6 +998,8 @@ def build_tasks_props(name, owner_notion_id, fecha_evaluacion, kpi_numbers):
         p["Fecha Deadline"] = {"date": {"start": fecha_evaluacion}}
     if kpi_numbers:
         p["KPI number"] = {"multi_select": [{"name": str(n)} for n in kpi_numbers]}
+    if issue_page_id:  # task de iniciativa → adjuntar al Issue del experimento
+        p["Issue Inventory (Tasks)"] = {"relation": [{"id": issue_page_id}]}
     return p
 
 
@@ -1123,6 +1133,8 @@ crear-cr standalone  → task libre (relation vacía)
 
 ## Changelog
 
+- **v1.8.0 (2026-07-21)** — Routing ajustado (Julio). Weekly YA NO es el default de toda iniciativa/issue: (1) tarea de reunión semanal `es_weekly` → #weekly-exec-okrs; (2) issue/iniciativa tech (software) → #iniciativas-tech; (3) CR cross-equipos con `cr_pair` → #crs-*; (4) issue no-tech → #issues-líderes (líder/estratégico) o #issues-general. `route_channel()` reescrito + params `es_weekly`/`estrategico`. Los 6 canales #crs-* siguen mapeados.
+- **v1.7.2 (2026-07-18)** — Sub-mundo Brain: task setea `Company Brain=true` (para vistas filtradas del HUB) + param `issue_page_id` para relation a Issue de iniciativa.
 - **v1.7.1 (2026-07-18)** — Fix IDs verificados live + relation confirmada. Tasks DB `f63d7df1` (phantom, 404) → real `95684528`. Issue DB = "Issue Inventory" `202fb2dd`. Relation Task→Issue resuelta: `Issue Inventory (Tasks)` = `[{id: issue_page_id}]`. Token "Token Brain" RW verificado (workspace Manzana Verde).
 - **v1.7.0 (2026-07-17)** — Vinculación al Issue de iniciativa (Carlos v2). CR con exp_id → task vinculada al Issue paraguas; CR libre → task suelta.
 - **v1.6.0 (2026-07-11)** — KPI/input propagation (regla auto-link)

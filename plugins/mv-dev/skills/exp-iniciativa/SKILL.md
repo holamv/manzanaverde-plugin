@@ -12,7 +12,7 @@ trigger_phrases:
   - "nuevo experimento"
   - "registrar BET"
   - "crear apuesta"
-version: 1.2.1
+version: 1.3.0
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/03-skill-exp-iniciativa.md
@@ -502,8 +502,27 @@ El token **"Token Brain"** (`NOTION_TOKEN`) tiene **RW total en workspace "Manza
 **Campos del Issue (Issue Inventory, `status` type para Status):**
 `Issue Name` (title) · `Issue Description` (rich_text) · `Nombre KPIs`/`Meta KPIs` (rich_text) · `Fecha ejecucion` (date) · `Decision Type` (select) · `Decision Maker` (people) · `Status` (status).
 
+## v2 (Carlos 2026-07-21) — RAG por KPI + ingesta cruda
+
+**Paso 0 (RAG por KPI):** antes de crear, el agente recupera contexto del brain ligado al KPI —
+consulta `/kpi-context?id=<kpi>` (o `kpi-context` skill) para traer definición, inputs con valores
+reales, experiments previos que mueven ese KPI y su medición histórica. Evita duplicar y da baseline.
+
+**Ingesta no-estructurado → estructurado:** param `source_notion_url` — pásale un link de una página
+Notion **manual (cruda)** y el endpoint lee su texto para enriquecer el brief (clasificación de área +
+detección de métrica). El agente **estructura**; la fuente cruda solo aporta contexto. La respuesta
+incluye `ingested_source`. Ejemplo:
+
+```bash
+POST /api/exp-iniciativa
+{ "brief":"...", "owner_dri":"...", "source_notion_url":"https://www.notion.so/<pagina-manual>" }
+```
+
+Marco: Company Brain v2 (4 capas). Ver Notion "🏛️ Arquitectura v2 — 4 capas (Carlos)".
+
 ## Changelog
 
+- **v1.3.0 (2026-07-21)** — Carlos v2: Paso 0 RAG por KPI (consulta kpi-context al arrancar) + ingesta cruda `source_notion_url` (lee página Notion manual → enriquece brief). Respuesta agrega `ingested_source`.
 - **v1.2.1 (2026-07-18)** — Token "Token Brain" válido (RW workspace Manzana Verde) reemplaza workaround MCP OAuth. Issue DB = "Issue Inventory" `202fb2dd`. Endpoint crea Issue server-side (requiere NOTION_TOKEN en Vercel).
 - **v1.2.0 (2026-07-17)** — Modelo Issue↔Experimento (Carlos v2). Crea/vincula Issue Notion (plantilla) con estructura canónica + exp_id embebido. notion_id bidireccional. Params notion_issue_id + skip_issue.
 - **v1.1.0 (2026-07-11)** — Hard-gate KPI/input auto-link (regla arquitectural Julio)
