@@ -11,25 +11,10 @@ ERRORS=0
 echo "Pre-push checks..."
 echo ""
 
-# --- trazabilidad codigo->CR (Fase 1 warning; Fase 3 fallo solo en ramas cr/*) ---
-# Detecta el trailer 'CR: <id>' en los commits que se van a pushear.
-# Ramas cr/* → fallo (exit 1). Otras ramas → warning permisivo. Ver docs/TRACEABILITY.md.
-COMMITS_BODY="$(git log --format=%B "@{upstream}"..HEAD 2>/dev/null || git log --format=%B -5 2>/dev/null)"
-CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
-if [ -n "$COMMITS_BODY" ] && ! printf '%s\n' "$COMMITS_BODY" | grep -qE '^CR: *[A-Za-z0-9][A-Za-z0-9-]*'; then
-  case "$CURRENT_BRANCH" in
-    cr/*)
-      echo "❌ [trazabilidad] Rama '$CURRENT_BRANCH' (cr/*) sin trailer 'CR: <id>' en los commits a pushear." >&2
-      echo "   Agregá 'CR: <cr_id>' al cuerpo del commit. Ver docs/TRACEABILITY.md" >&2
-      exit 1
-      ;;
-    *)
-      echo "⚠️  [trazabilidad] Ningún commit declara 'CR: <id>'. Cadena código→CR incompleta." >&2
-      echo "   Convención: rama cr/<cr_id>-<slug> + trailer 'CR: <cr_id>' en el cuerpo del commit." >&2
-      echo "   Ver docs/TRACEABILITY.md" >&2
-      # Rama no-cr/*: warning only, NO exit 1.
-      ;;
-  esac
+# --- trazabilidad codigo->CR (ver lib/check-cr-trailer.sh y docs/TRACEABILITY.md) ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ! bash "$SCRIPT_DIR/lib/check-cr-trailer.sh"; then
+  exit 1
 fi
 # --- fin trazabilidad ---
 

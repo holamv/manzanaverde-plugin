@@ -116,3 +116,15 @@ Así, el trabajo que declara ser parte de la cadena (rama `cr/<cr_id>-<slug>`) q
 obligado a cerrarla, mientras que el resto del desarrollo sigue sin fricción. El
 endurecimiento a fallo se introdujo en la Fase 3 del PRD, una vez validado el
 estándar en uso durante la Fase 1 (warning global).
+
+## Tests de la validación
+
+La detección del trailer vive en `plugins/mv-dev/scripts/lib/check-cr-trailer.sh`
+(extraída de `validate-pre-push.sh` para poder testearla en aislamiento).
+
+```bash
+bash plugins/mv-dev/scripts/lib/check-cr-trailer.test.sh
+```
+
+8 casos: rama `cr/*` con y sin trailer, rama normal con y sin trailer, trailer
+vacío, minúscula, inline (no al inicio de línea) y repo sin upstream.

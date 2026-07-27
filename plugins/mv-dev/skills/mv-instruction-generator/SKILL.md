@@ -37,7 +37,7 @@ Tres principios inmutables:
 
 Al recibir un request, detecta cuál de los 4 modos aplica:
 
-### Modo A — Idea de negocio nueva (PRD)
+### Modo A — Idea de negocio nueva (Brief de Negocio)
 
 **Trigger:** request vago, ideación, "quiero hacer X", sin especificación técnica.
 - "Quiero un dashboard de pedidos por día"
@@ -45,7 +45,7 @@ Al recibir un request, detecta cuál de los 4 modos aplica:
 
 **Comportamiento:** Modelo conversacional con preguntas de negocio.
 
-Ver sección **"Modo A: PRD generator"** abajo.
+Ver sección **"Modo A: Brief de Negocio"** abajo.
 
 ### Modo B — Fix puntual (ejecución directa)
 
@@ -96,7 +96,7 @@ Aplica esta heurística en orden:
    → Modo D (Discovery puro)
 
 2. ¿El request es vago/ideación sin especificación técnica?
-   → Modo A (PRD)
+   → Modo A (Brief de Negocio)
 
 3. ¿El request tiene alcance amplio (sprint, refactor, feature nueva, multi-archivo)?
    → Modo C (Sprint mediano/grande)
@@ -165,7 +165,11 @@ npx next build
 
 Si **algún guard falla** → revertir cambios, reportar al developer.
 
-## Modo A: PRD generator (idea de negocio nueva)
+## Modo A: Brief de Negocio (idea de negocio nueva)
+
+> Renombrado: antes se llamaba "PRD generator". El *PRD formal de código* es
+> `/mv-dev:crear-prd` (8 bloques, `docs/prd/`). Modo A produce el **qué/para qué**
+> de negocio; no es un PRD técnico. Un solo artefacto por nombre.
 
 Para requests vagos/ideación. NO ejecuta código — modelo conversacional.
 
