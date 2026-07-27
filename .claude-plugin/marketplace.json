@@ -13,7 +13,8 @@
       "name": "superpowers",
       "source": {
         "source": "github",
-        "repo": "obra/superpowers"
+        "repo": "obra/superpowers",
+        "ref": "v6.2.0"
       }
     }
   ]
