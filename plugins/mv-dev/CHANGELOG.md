@@ -5,9 +5,11 @@ Todos los cambios notables del plugin mv-dev se documentan aqui.
 ## [Unreleased] — hacia 1.9.0
 
 ### Added
+- **Skill `crear-prd`** (Fase 2 del PRD `crear-prd`, modo solo-lectura): genera un PRD estructurado de 8 bloques para trabajo de código en `docs/prd/CR-<cr_id>.md` del repo destino (versionado con el código, revisable en el PR). Dos modos de salida — ligero (BUG defecto: bloques 1,3,4,5,8) y completo (BET/RESUME: los 8). Consulta `test-decision` para la clasificación (no la reimplementa), usa el estilo de discovery de `mv-instruction-generator`, e **idempotente por `cr_id`** (si el PRD existe, linkea y sale). No ejecuta código, no abre PR, no escribe en Notion. Template único en `skills/crear-prd/TEMPLATE.md`. Registrada en los README (31→32 skills).
 - **Convención de trazabilidad código→CR** (Fase 1 del PRD `crear-prd`): rama `cr/<cr_id>-<slug>`, trailer de commit `CR: <cr_id>` (+ opcional `Exp: <exp_id>`) y bloque de trazabilidad en el cuerpo del PR. Cierra el bucle de 4 capas del Company Brain (datalake ↔ Notion ↔ Discord) hasta el repo: registra qué código implementó cada iniciativa. Documentado en `docs/TRACEABILITY.md`, linkeado desde el README de la raíz.
 
 ### Changed
+- **`mv-instruction-generator` (Modo A)**: puntero no-bloqueante a `crear-prd` como formato único de PRD para trabajo de código (envolver, no extraer — decisión §9.3). El *Brief de Negocio* de Modo A y el `INSTRUCCION_*.md` de Modo C quedan intactos; el flujo `exp-iniciativa → generator → crear-cr` no cambia.
 - **Templates de PR** (`.github/pull_request_template.md` y `plugins/mv-dev/templates/pr-template.md`): nuevo bloque "Trazabilidad" (CR / Experiment / PRD / KPI) al inicio, sin borrar lo existente.
 - **`validate-pre-push.sh`**: detecta el trailer `CR:` en los commits a pushear y emite un *warning* (`[trazabilidad]` a stderr) si falta. En Fase 1 **nunca bloquea**; el endurecimiento a fallo para ramas `cr/*` es una fase posterior.
 
