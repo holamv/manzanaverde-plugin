@@ -12,7 +12,7 @@ trigger_phrases:
   - "crear iniciativa discord"
   - "nuevo change request"
   - "abrir CR para"
-version: 1.8.1
+version: 1.8.2
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/04-skill-crear-cr.md
@@ -625,6 +625,48 @@ Por favor, confirma recepción y acuerdo con la fecha límite planteada.
 Por favor, confirma recepción y acuerdo con la fecha límite planteada.
 ```
 
+### Paso 5.5 — Gate de PRD (Fase 3)
+
+Después de crear el CR, decidir si requiere un **PRD** antes de implementar. **Gate proporcional**: solo bloquea en flujo crítico; el resto es sugerencia. No reemplaza la clasificación — la delega a `test-decision` (fuente única).
+
+```
+1. ¿El CR toca repo o app?
+   Señales: area ∈ {Producto, Tech, Growth-Producto, Growth-Tech},
+   canal destino = #iniciativas-tech, tipo='BET' software,
+   o la acción menciona repo/branch/deploy/endpoint/componente.
+   → No: fin. CR normal, sin PRD.
+
+2. ¿El CR ya tiene PRD? (vino de mv-instruction-generator Fase 0.B,
+   o ya existe docs/prd/CR-<cr_id>.md en el repo destino)
+   → Sí: linkear el PRD al CR y salir. NO regenerar (idempotencia).
+
+3. Clasificar vía /mv-dev:test-decision (transcribir, no re-decidir):
+   - BUG trivial (copy/color/config/doc) → sin PRD.
+   - BUG defecto                         → /mv-dev:crear-prd modo ligero.
+   - BET / RESUME                        → /mv-dev:crear-prd modo completo.
+```
+
+**Alcance del gate en Fase 3 — bloqueante vs sugerencia:**
+
+- **Bloqueante SOLO** para **BET/RESUME sobre flujo crítico** (pago, pedido, registro, login). Ahí el PRD es requisito antes de implementar.
+- Todo lo demás (BET/RESUME no crítico, BUG defecto) → `crear-prd` se **sugiere**, no bloquea. Se extiende con datos de uso en fases posteriores.
+
+**Bypass `--sin-prd`** (mismo patrón que `allow_no_kpi` de `exp-iniciativa`):
+
+- Exige `rationale` explícito. Sin `rationale` → **rechazado**.
+- Marcado *discouraged*: solo cuando el PRD genuinamente no aplica.
+- Se graba junto al CR (`sin_prd_rationale`), consultable después.
+- Documentado acá y —pendiente— en la página del Company Brain en Notion (junto con `allow_no_kpi` y `force`).
+
+```
+if gate_bloqueante && !existe_prd && !sin_prd:
+  → PARAR: pedir /mv-dev:crear-prd (o --sin-prd con rationale)
+if --sin-prd && !rationale:
+  → RECHAZAR: "--sin-prd exige rationale"
+if --sin-prd && rationale:
+  → grabar sin_prd_rationale junto al CR y continuar
+```
+
 ### Paso 6 — Reportar
 
 ```json
@@ -1137,6 +1179,7 @@ crear-cr standalone  → task libre (relation vacía)
 
 ## Changelog
 
+- **v1.8.2 (2026-07-22)** — Restaura **Paso 5.5 — Gate de PRD (Fase 3)** que el PR de v1.8.1 había borrado por accidente (mi rama no lo tenía; el gate venía de PR#14 del equipo). Mantiene los fixes de IDs/formatos MCP de v1.8.1. cloud/skills ahora incluye el gate como canónico.
 - **v1.8.1 (2026-07-22)** — Fix IDs database vs data_source + formatos MCP. Cada DB tiene 2 ids: `database_id` (raw REST API) y `data_source_id` (Notion MCP). Tasks: db `95684528` / ds `f63d7df1`. Issue Inventory: db `202fb2dd` / ds `9b170e57`. Corregido el bug del Paso 4 (MCP usaba el database_id como data_source_id → 404). Formatos MCP correctos: checkbox `"__YES__"`, person/multi-select = array de strings, relation = array de page ids/urls, id/url → prefijo `userDefined:`. Corrige la nota "phantom" errónea de v1.7.1.
 - **v1.8.0 (2026-07-21)** — Routing ajustado (Julio). Weekly YA NO es el default de toda iniciativa/issue: (1) tarea de reunión semanal `es_weekly` → #weekly-exec-okrs; (2) issue/iniciativa tech (software) → #iniciativas-tech; (3) CR cross-equipos con `cr_pair` → #crs-*; (4) issue no-tech → #issues-líderes (líder/estratégico) o #issues-general. `route_channel()` reescrito + params `es_weekly`/`estrategico`. Los 6 canales #crs-* siguen mapeados.
 - **v1.7.2 (2026-07-18)** — Sub-mundo Brain: task setea `Company Brain=true` (para vistas filtradas del HUB) + param `issue_page_id` para relation a Issue de iniciativa.
