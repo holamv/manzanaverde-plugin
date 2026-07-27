@@ -169,6 +169,13 @@ Si **algún guard falla** → revertir cambios, reportar al developer.
 
 Para requests vagos/ideación. NO ejecuta código — modelo conversacional.
 
+> **PRD formal de código → `/mv-dev:crear-prd`.** Modo A genera un *Brief de
+> Negocio* (el "qué/para qué") y luego pasa a Modo C. Cuando el trabajo gradúa a
+> **código** y amerita un PRD estructurado (trazabilidad, plan de tests,
+> observabilidad, DoD), el formato único es `/mv-dev:crear-prd` (8 bloques,
+> `docs/prd/CR-<cr_id>.md`). No inventar un formato de PRD inline: hay un solo
+> template. El Brief de Negocio y el `INSTRUCCION_*.md` de Modo C siguen igual.
+
 ### Fase 1: Preguntas de negocio (máximo 4)
 
 Hacer SOLO las preguntas que NO podés deducir del contexto:
@@ -199,6 +206,8 @@ Confirmar con el developer: "¿Este brief refleja lo que necesitas?"
 ### Fase 3: Si confirma → cambiar a Modo C
 
 El Brief se vuelve el "Contexto del problema" de la instrucción técnica. Continuar con Discovery interno + plan + ejecución.
+
+Si el trabajo es de código y amerita un PRD formal (BET/RESUME sobre repo/app), generar ese PRD con `/mv-dev:crear-prd` (formato único de 8 bloques) en vez de redactarlo inline. El `INSTRUCCION_*.md` de Modo C sigue siendo el plan de ejecución con STOPs; el PRD de `crear-prd` es la especificación versionada en `docs/prd/`.
 
 ## Modo B: Fix puntual (ejecución directa)
 
