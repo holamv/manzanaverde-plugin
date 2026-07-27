@@ -12,7 +12,7 @@ Guia para consultar la base de datos de forma segura usando el MCP server `mv-db
 2. **Siempre LIMIT** - Toda query debe incluir LIMIT (maximo 100 filas)
 3. **Solo staging** - Nunca conectarse a la base de datos de produccion
 4. **Queries parametrizados** - Nunca concatenar strings. Usar placeholders `?`
-5. **Tablas bloqueadas** - No acceder a: `user_credentials`, `payment_methods`, `stripe_tokens`, `admin_sessions`
+5. **Tablas bloqueadas** - No acceder a: `user_credentials`, `payment_methods`, `payments`, `user_payment_methods`, `stripe_tokens`, `admin_sessions` (default de `DB_BLOCKED_TABLES`, sobrescribible por cada dev)
 
 ## Usando el MCP Server mv-db-query
 

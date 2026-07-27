@@ -5,16 +5,17 @@ Plugin completo de desarrollo que permite a cualquier miembro del equipo de Manz
 ## Instalacion
 
 ```bash
-claude plugin add https://github.com/manzanaverde/manzanaverde-plugin
+claude plugin add https://github.com/manzanaverdelatam/manzanaverde-plugin
 ```
 
 ## Que incluye
 
-### Skills (12)
+### Skills (31)
 
 **Core:**
 - `/mv-dev:discovery` - **Descubrimiento tecnico: analiza brief y encuentra APIs, tablas y servicios existentes**
 - `/mv-dev:mv-docs` - **Buscar documentacion de APIs y tablas SQL en Notion (fuente de verdad)**
+- `/mv-dev:mv-instruction-generator` - Orquesta el workflow tecnico (Discovery, Fix, Sprint o PRD) segun el tipo de request
 
 **Conocimiento:**
 - `/mv-dev:mv-api-consumer` - Como consumir APIs de MV correctamente
@@ -42,6 +43,20 @@ claude plugin add https://github.com/manzanaverde/manzanaverde-plugin
 - `/mv-dev:proponer-campana` - Propone campaña completa (público, volumen, horario, copy) desde género + tema
 - `/mv-dev:ejecutar-campana` - Ejecuta la campaña (ManyChat WhatsApp/Correo o BackOffice Banner/Modal/Card/Push) y registra el experimento con objetivo explícito
 - `/mv-dev:generar-lista-manychat` - Genera insumos ManyChat (CSV opt-in/dedup + JSON con CTA + hora sugerida)
+
+**Testing y BDD (Gherkin):**
+- `/mv-dev:notion-gherkin` - Obtiene requerimientos de Notion y genera archivos Gherkin (.feature)
+- `/mv-dev:create-feature-file` - Genera un archivo Gherkin BDD desde una feature documentada en Notion
+- `/mv-dev:gherkin-to-tests` - Lee archivos .feature y genera tests ejecutables (Jest, RTL, Playwright)
+- `/mv-dev:test-decision` - Decide QUE test crear y CUANDO (y cuando no) para un cambio
+
+**Flutter (App Movil):**
+- `/mv-dev:flutter-architecture` - Define o revisa la arquitectura del proyecto Flutter
+- `/mv-dev:flutter-visual-style` - Configura y valida design tokens, tipografia, colores y estilos
+- `/mv-dev:flutter-brand-identity` - Revisa identidad de marca: logo, iconografia, tono, animaciones
+- `/mv-dev:flutter-new-feature` - Scaffold completo de una nueva feature Flutter
+- `/mv-dev:flutter-new-screen` - Nueva pantalla Flutter con estados de carga/error y widget tests
+- `/mv-dev:flutter-component` - Widget reutilizable con design tokens, variantes y tests
 
 ### Agentes (4)
 

@@ -67,7 +67,7 @@ Cada skill tiene su propia documentación en **[Skills](10-SKILLS.md)** con:
 
 ## 📋 Checklist Inicial
 
-- [ ] Instalé el plugin: `claude plugin add https://github.com/manzanaverde/manzanaverde-plugin`
+- [ ] Instalé el plugin: `claude plugin add https://github.com/manzanaverdelatam/manzanaverde-plugin`
 - [ ] Configuré `CONTEXT7_API_KEY` (ver [CONFIGURACIÓN](03-SETUP.md))
 - [ ] Configuré `NOTION_TOKEN` (ver [CONFIGURACIÓN](03-SETUP.md))
 - [ ] Configuré `SUPABASE_ACCESS_TOKEN` (ver [CONFIGURACIÓN](03-SETUP.md))
