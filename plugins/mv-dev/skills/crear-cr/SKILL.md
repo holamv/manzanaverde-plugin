@@ -12,7 +12,7 @@ trigger_phrases:
   - "crear iniciativa discord"
   - "nuevo change request"
   - "abrir CR para"
-version: 1.8.0
+version: 1.8.1
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/04-skill-crear-cr.md
@@ -122,13 +122,16 @@ const LEADERS = {
 
 ## Notion DBs destino
 
-| DB | Data Source ID | URL | Usado para |
-|----|----------------|-----|-----------|
-| **Tasks** | `95684528-9b3a-440e-91c7-f12ca1e15de4` | https://www.notion.so/956845289b3a440e91c7f12ca1e15de4 | BETs/Iniciativas + CRs (1 row por task) |
-| **Issue Inventory** | `202fb2dd-5c7e-407c-8e48-aa1c5b02fb75` | https://www.notion.so/202fb2dd5c7e407c8e48aa1c5b02fb75 | Issue paraguas del experimento (crea `exp-iniciativa`, mantenido por n8n cron hourly a Discord) |
-| **Feedback archive - MV** | `eca0b04f-d20a-40cc-86b7-56b83c40cd47` | — | Resumenes de meetings (cross-link via relation `👥 Feedback archive - MV`) |
+| DB | **Database ID** (raw REST API) | **Data Source ID** (Notion MCP) | Usado para |
+|----|--------------------------------|--------------------------------|-----------|
+| **Tasks** | `95684528-9b3a-440e-91c7-f12ca1e15de4` | `f63d7df1-435e-43da-9013-456d2083efc8` | BETs/Iniciativas + CRs (1 row por task) |
+| **Issue Inventory** | `202fb2dd-5c7e-407c-8e48-aa1c5b02fb75` | `9b170e57-48a9-4df0-8825-7f4f729ec9d4` | Issue paraguas del experimento (crea `exp-iniciativa`, cron n8n a Discord) |
+| **Feedback archive - MV** | `eca0b04f-d20a-40cc-86b7-56b83c40cd47` | — | Resumenes de meetings (relation `👥 Feedback archive - MV`) |
 
-> ⚠️ **CORRECCIÓN 2026-07-18 (verificado live):** Tasks DB real = `95684528-...` (el `f63d7df1-...` usado antes NO existe → 404). Issue DB real = `202fb2dd-...` título "Issue Inventory".
+> ⚠️ **CADA DB TIENE 2 IDs — NO intercambiables (corrige la nota errónea v1.7.1 "phantom"):**
+> - **Raw REST API** (`fetch https://api.notion.com`, Python stub) → usa **`database_id`**: `{"parent":{"database_id":"95684528..."}}`. Nota: `GET /v1/databases/f63d7df1` da 404 en raw API — por eso pareció "phantom", pero NO lo es.
+> - **Notion MCP** (`notion-create-pages` / `notion-update-page`) → usa **`data_source_id`** (collection): `parent:{type:"data_source_id","data_source_id":"f63d7df1..."}`.
+> - `f63d7df1` = data_source_id de Tasks · `9b170e57` = data_source_id de Issue Inventory (verificado live con `notion-create-view` + fetch data sources).
 
 **Decisión:** `crear-cr` por defecto escribe a **Tasks DB**. La task de una iniciativa se **adjunta al Issue** vía relation `Issue Inventory (Tasks)` (ver abajo). CR libre → task standalone sin issue.
 
@@ -343,43 +346,44 @@ function resolveResponsableTag(input) {
 ### Paso 4 — Crear N Notion tasks (loop por acción)
 
 ```javascript
-const NOTION_TASKS_DB = '95684528-9b3a-440e-91c7-f12ca1e15de4';   // "Tasks " — verificado live 2026-07-18
-const NOTION_ISSUES_DB = '202fb2dd-5c7e-407c-8e48-aa1c5b02fb75';  // "Issue Inventory" (issue paraguas)
+// Tasks — DOS ids (ver tabla arriba). Elige según el camino de ejecución:
+const NOTION_TASKS_DB = '95684528-9b3a-440e-91c7-f12ca1e15de4';   // database_id  → RAW REST API
+const NOTION_TASKS_DS = 'f63d7df1-435e-43da-9013-456d2083efc8';   // data_source_id → NOTION MCP
+const NOTION_ISSUES_DB = '202fb2dd-5c7e-407c-8e48-aa1c5b02fb75';  // database_id (Issue Inventory)
+const NOTION_ISSUES_DS = '9b170e57-48a9-4df0-8825-7f4f729ec9d4';  // data_source_id (Issue Inventory)
 
-// Task de iniciativa → adjuntar al issue:
-//   properties['Issue Inventory (Tasks)'] = { relation: [{ id: issue_page_id }] }
-// CR libre → omitir esa relation (task standalone).
+// Task de iniciativa → adjuntar al issue vía relation `Issue Inventory (Tasks)`. CR libre → omitir.
+// Schema editable de Tasks: Tasks(title) · Status(status) · Responsable/Asignee(people) ·
+//   Fecha Deadline(date) · KPI number(multi_select) · Highest Priority(checkbox) ·
+//   Project/Areas/Issue Inventory (Tasks)/Key Result/Context Area/etc. (relation/multi_select).
 
-// Schema editable confirmado (via validación E2E 2026-06-30 + relive 2026-07-18):
-//   Tasks (title), Status (status), Responsable (people), Asignee (people),
-//   Fecha Deadline (date), KPI number (multi_select), Highest Priority (checkbox),
-//   Project (relation), Areas (relation), Issue Inventory (Tasks) (relation),
-//   👥 Feedback archive - MV (relation), Key Result (relation),
-//   Context Area (multi_select), Related to Meeting Agendas (Tasks) (relation),
-//   Related to Key Results (Tasks) (relation), Related to Areas y SubAreas (relation)
+// ⚠️ FORMATOS DE PROPIEDADES — difieren según el camino:
+//
+//                    RAW REST API (api.notion.com)          NOTION MCP (notion-create-pages)
+//   Title      →     { title:[{text:{content}}] }           "Tasks": "string"
+//   Status     →     { status:{ name:"To Do" } }            "Status": "To Do"
+//   Person     →     { people:[{ id:"uuid" }] }             "Responsable": ["uuid"]        (array de uuids)
+//   Checkbox   →     { checkbox: true }                     "Highest Priority": "__YES__"  (o "__NO__")
+//   Multi-sel  →     { multi_select:[{name:"27"}] }         "KPI number": ["27","64"]      (array de strings)
+//   Date       →     { date:{ start:"YYYY-MM-DD" } }        "date:Fecha Deadline:start": "YYYY-MM-DD"
+//   Relation   →     { relation:[{ id:"pageid" }] }         "Issue Inventory (Tasks)": ["pageid o url"]
+//   Number     →     { number: 5 }                          "prop": 5 (número JS)
+//   id/url     →     (nombre tal cual)                      prefijo "userDefined:" (ej. "userDefined:URL")
 
-// Formato Notion API (Claude Notion MCP):
-//   - Title:   "Tasks": "string"
-//   - Status:  "Status": "To Do"          ← simple string
-//   - Person:  "Responsable": "uuid"      ← solo el uuid
-//   - Date:    "date:Fecha Deadline:start": "YYYY-MM-DD"  ← EXPANDED format
-//   - Multi:   "KPI number": "27,64"      ← comma-separated
-
-const notionPages = [];
-for (const accion of accionesArray) {
-  const page = await notion.pages.create({
-    parent: { data_source_id: NOTION_TASKS_DB },
-    properties: {
-      'Tasks': `CR: ${accion.nombre_corto} — ${experiment.nombre.slice(0, 40)}`,
-      'Status': 'To Do',
-      'Responsable': accion.sub_owner_notion_id || input.owner_notion_id,
-      'date:Fecha Deadline:start': accion.deadline || input.fecha_evaluacion,
-    },
-    icon: accion.es_rat ? '🧪' : '📋',
-    content: buildNotionTaskBody(accion, experiment),
-  });
-  notionPages.push({ accion, page });
-}
+// --- Camino B: Notion MCP (notion-create-pages) — usa data_source_id + formatos MCP ---
+const mcpPages = accionesArray.map((accion) => ({
+  properties: {
+    'Tasks': `CR: ${accion.nombre_corto} — ${experiment.nombre.slice(0, 40)}`,
+    'Status': 'To Do',
+    'Company Brain': '__YES__',
+    'Responsable': [accion.sub_owner_notion_id || input.owner_notion_id],   // array
+    'KPI number': (input.kpi_numbers || []).map(String),                    // array de strings
+    'date:Fecha Deadline:start': accion.deadline || input.fecha_evaluacion,
+    ...(input.issue_page_id ? { 'Issue Inventory (Tasks)': [input.issue_page_id] } : {}),
+  },
+  content: buildNotionTaskBody(accion, experiment),
+}));
+// notion-create-pages({ parent: { type:'data_source_id', data_source_id: NOTION_TASKS_DS }, pages: mcpPages })
 ```
 
 Notion page body template:
@@ -619,48 +623,6 @@ Por favor, confirma recepción y acuerdo con la fecha límite planteada.
 🔗 **Notion:** {notion_url}
 
 Por favor, confirma recepción y acuerdo con la fecha límite planteada.
-```
-
-### Paso 5.5 — Gate de PRD (Fase 3)
-
-Después de crear el CR, decidir si requiere un **PRD** antes de implementar. **Gate proporcional**: solo bloquea en flujo crítico; el resto es sugerencia. No reemplaza la clasificación — la delega a `test-decision` (fuente única).
-
-```
-1. ¿El CR toca repo o app?
-   Señales: area ∈ {Producto, Tech, Growth-Producto, Growth-Tech},
-   canal destino = #iniciativas-tech, tipo='BET' software,
-   o la acción menciona repo/branch/deploy/endpoint/componente.
-   → No: fin. CR normal, sin PRD.
-
-2. ¿El CR ya tiene PRD? (vino de mv-instruction-generator Fase 0.B,
-   o ya existe docs/prd/CR-<cr_id>.md en el repo destino)
-   → Sí: linkear el PRD al CR y salir. NO regenerar (idempotencia).
-
-3. Clasificar vía /mv-dev:test-decision (transcribir, no re-decidir):
-   - BUG trivial (copy/color/config/doc) → sin PRD.
-   - BUG defecto                         → /mv-dev:crear-prd modo ligero.
-   - BET / RESUME                        → /mv-dev:crear-prd modo completo.
-```
-
-**Alcance del gate en Fase 3 — bloqueante vs sugerencia:**
-
-- **Bloqueante SOLO** para **BET/RESUME sobre flujo crítico** (pago, pedido, registro, login). Ahí el PRD es requisito antes de implementar.
-- Todo lo demás (BET/RESUME no crítico, BUG defecto) → `crear-prd` se **sugiere**, no bloquea. Se extiende con datos de uso en fases posteriores.
-
-**Bypass `--sin-prd`** (mismo patrón que `allow_no_kpi` de `exp-iniciativa`):
-
-- Exige `rationale` explícito. Sin `rationale` → **rechazado**.
-- Marcado *discouraged*: solo cuando el PRD genuinamente no aplica.
-- Se graba junto al CR (`sin_prd_rationale`), consultable después.
-- Documentado acá y —pendiente— en la página del Company Brain en Notion (junto con `allow_no_kpi` y `force`).
-
-```
-if gate_bloqueante && !existe_prd && !sin_prd:
-  → PARAR: pedir /mv-dev:crear-prd (o --sin-prd con rationale)
-if --sin-prd && !rationale:
-  → RECHAZAR: "--sin-prd exige rationale"
-if --sin-prd && rationale:
-  → grabar sin_prd_rationale junto al CR y continuar
 ```
 
 ### Paso 6 — Reportar
@@ -1175,9 +1137,10 @@ crear-cr standalone  → task libre (relation vacía)
 
 ## Changelog
 
+- **v1.8.1 (2026-07-22)** — Fix IDs database vs data_source + formatos MCP. Cada DB tiene 2 ids: `database_id` (raw REST API) y `data_source_id` (Notion MCP). Tasks: db `95684528` / ds `f63d7df1`. Issue Inventory: db `202fb2dd` / ds `9b170e57`. Corregido el bug del Paso 4 (MCP usaba el database_id como data_source_id → 404). Formatos MCP correctos: checkbox `"__YES__"`, person/multi-select = array de strings, relation = array de page ids/urls, id/url → prefijo `userDefined:`. Corrige la nota "phantom" errónea de v1.7.1.
 - **v1.8.0 (2026-07-21)** — Routing ajustado (Julio). Weekly YA NO es el default de toda iniciativa/issue: (1) tarea de reunión semanal `es_weekly` → #weekly-exec-okrs; (2) issue/iniciativa tech (software) → #iniciativas-tech; (3) CR cross-equipos con `cr_pair` → #crs-*; (4) issue no-tech → #issues-líderes (líder/estratégico) o #issues-general. `route_channel()` reescrito + params `es_weekly`/`estrategico`. Los 6 canales #crs-* siguen mapeados.
 - **v1.7.2 (2026-07-18)** — Sub-mundo Brain: task setea `Company Brain=true` (para vistas filtradas del HUB) + param `issue_page_id` para relation a Issue de iniciativa.
-- **v1.7.1 (2026-07-18)** — Fix IDs verificados live + relation confirmada. Tasks DB `f63d7df1` (phantom, 404) → real `95684528`. Issue DB = "Issue Inventory" `202fb2dd`. Relation Task→Issue resuelta: `Issue Inventory (Tasks)` = `[{id: issue_page_id}]`. Token "Token Brain" RW verificado (workspace Manzana Verde).
+- **v1.7.1 (2026-07-18)** — Fix IDs verificados live + relation confirmada. ~~Tasks DB `f63d7df1` (phantom, 404) → real `95684528`~~ **(CORREGIDO en v1.8.1: `f63d7df1` NO es phantom — es el data_source_id de Tasks; `95684528` es el database_id).** Issue DB = "Issue Inventory" `202fb2dd`. Relation Task→Issue resuelta: `Issue Inventory (Tasks)` = `[{id: issue_page_id}]`. Token "Token Brain" RW verificado (workspace Manzana Verde).
 - **v1.7.0 (2026-07-17)** — Vinculación al Issue de iniciativa (Carlos v2). CR con exp_id → task vinculada al Issue paraguas; CR libre → task suelta.
 - **v1.6.0 (2026-07-11)** — KPI/input propagation (regla auto-link)
   - Si `exp_id` presente → **heredar automático** `kpi_definition_id` desde `experiments_with_kpi` view
