@@ -101,12 +101,18 @@ CR CR-0477                              ← falta el ':' del trailer
 Ref: CR-0477                            ← clave equivocada; debe ser 'CR:'
 ```
 
-## Qué valida el hook hoy (Fase 1)
+## Qué valida el hook
 
 `plugins/mv-dev/scripts/validate-pre-push.sh` inspecciona los commits que se van a
 pushear (`@{upstream}..HEAD`) y busca al menos un trailer `CR: <id>`. Si no lo
-encuentra, emite un **warning** a stderr con el prefijo `[trazabilidad]` y
-continúa: en Fase 1 **nunca bloquea el push**.
+encuentra, el comportamiento depende de la rama:
 
-El endurecimiento a fallo —y solo para ramas con prefijo `cr/*`— es parte de una
-fase posterior del PRD, una vez validado el estándar en uso.
+| Rama | Sin trailer `CR:` |
+|---|---|
+| `cr/*` | **Falla** (exit 1). El push se bloquea hasta agregar el trailer. |
+| cualquier otra | **Warning** a stderr con prefijo `[trazabilidad]`, no bloquea. |
+
+Así, el trabajo que declara ser parte de la cadena (rama `cr/<cr_id>-<slug>`) queda
+obligado a cerrarla, mientras que el resto del desarrollo sigue sin fricción. El
+endurecimiento a fallo se introdujo en la Fase 3 del PRD, una vez validado el
+estándar en uso durante la Fase 1 (warning global).

@@ -621,6 +621,48 @@ Por favor, confirma recepción y acuerdo con la fecha límite planteada.
 Por favor, confirma recepción y acuerdo con la fecha límite planteada.
 ```
 
+### Paso 5.5 — Gate de PRD (Fase 3)
+
+Después de crear el CR, decidir si requiere un **PRD** antes de implementar. **Gate proporcional**: solo bloquea en flujo crítico; el resto es sugerencia. No reemplaza la clasificación — la delega a `test-decision` (fuente única).
+
+```
+1. ¿El CR toca repo o app?
+   Señales: area ∈ {Producto, Tech, Growth-Producto, Growth-Tech},
+   canal destino = #iniciativas-tech, tipo='BET' software,
+   o la acción menciona repo/branch/deploy/endpoint/componente.
+   → No: fin. CR normal, sin PRD.
+
+2. ¿El CR ya tiene PRD? (vino de mv-instruction-generator Fase 0.B,
+   o ya existe docs/prd/CR-<cr_id>.md en el repo destino)
+   → Sí: linkear el PRD al CR y salir. NO regenerar (idempotencia).
+
+3. Clasificar vía /mv-dev:test-decision (transcribir, no re-decidir):
+   - BUG trivial (copy/color/config/doc) → sin PRD.
+   - BUG defecto                         → /mv-dev:crear-prd modo ligero.
+   - BET / RESUME                        → /mv-dev:crear-prd modo completo.
+```
+
+**Alcance del gate en Fase 3 — bloqueante vs sugerencia:**
+
+- **Bloqueante SOLO** para **BET/RESUME sobre flujo crítico** (pago, pedido, registro, login). Ahí el PRD es requisito antes de implementar.
+- Todo lo demás (BET/RESUME no crítico, BUG defecto) → `crear-prd` se **sugiere**, no bloquea. Se extiende con datos de uso en fases posteriores.
+
+**Bypass `--sin-prd`** (mismo patrón que `allow_no_kpi` de `exp-iniciativa`):
+
+- Exige `rationale` explícito. Sin `rationale` → **rechazado**.
+- Marcado *discouraged*: solo cuando el PRD genuinamente no aplica.
+- Se graba junto al CR (`sin_prd_rationale`), consultable después.
+- Documentado acá y —pendiente— en la página del Company Brain en Notion (junto con `allow_no_kpi` y `force`).
+
+```
+if gate_bloqueante && !existe_prd && !sin_prd:
+  → PARAR: pedir /mv-dev:crear-prd (o --sin-prd con rationale)
+if --sin-prd && !rationale:
+  → RECHAZAR: "--sin-prd exige rationale"
+if --sin-prd && rationale:
+  → grabar sin_prd_rationale junto al CR y continuar
+```
+
 ### Paso 6 — Reportar
 
 ```json
