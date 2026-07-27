@@ -10,12 +10,13 @@ claude plugin add https://github.com/manzanaverdelatam/manzanaverde-plugin
 
 ## Que incluye
 
-### Skills (31)
+### Skills (32)
 
 **Core:**
 - `/mv-dev:discovery` - **Descubrimiento tecnico: analiza brief y encuentra APIs, tablas y servicios existentes**
 - `/mv-dev:mv-docs` - **Buscar documentacion de APIs y tablas SQL en Notion (fuente de verdad)**
 - `/mv-dev:mv-instruction-generator` - Orquesta el workflow tecnico (Discovery, Fix, Sprint o PRD) segun el tipo de request
+- `/mv-dev:crear-prd` - Genera un PRD estructurado (8 bloques) para trabajo de código en `docs/prd/CR-<id>.md`; consulta test-decision, no ejecuta código
 
 **Conocimiento:**
 - `/mv-dev:mv-api-consumer` - Como consumir APIs de MV correctamente

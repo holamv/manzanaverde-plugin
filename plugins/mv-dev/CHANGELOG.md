@@ -5,6 +5,7 @@ Todos los cambios notables del plugin mv-dev se documentan aqui.
 ## [Unreleased] — hacia 1.9.0
 
 ### Added
+- **Skill `crear-prd`** (Fase 2 del PRD `crear-prd`, modo solo-lectura): genera un PRD estructurado de 8 bloques para trabajo de código en `docs/prd/CR-<cr_id>.md` del repo destino (versionado con el código, revisable en el PR). Dos modos de salida — ligero (BUG defecto: bloques 1,3,4,5,8) y completo (BET/RESUME: los 8). Consulta `test-decision` para la clasificación (no la reimplementa), usa el estilo de discovery de `mv-instruction-generator`, e **idempotente por `cr_id`** (si el PRD existe, linkea y sale). No ejecuta código, no abre PR, no escribe en Notion. Template único en `skills/crear-prd/TEMPLATE.md`. Registrada en los README (31→32 skills).
 - **Convención de trazabilidad código→CR** (Fase 1 del PRD `crear-prd`): rama `cr/<cr_id>-<slug>`, trailer de commit `CR: <cr_id>` (+ opcional `Exp: <exp_id>`) y bloque de trazabilidad en el cuerpo del PR. Cierra el bucle de 4 capas del Company Brain (datalake ↔ Notion ↔ Discord) hasta el repo: registra qué código implementó cada iniciativa. Documentado en `docs/TRACEABILITY.md`, linkeado desde el README de la raíz.
 
 ### Changed

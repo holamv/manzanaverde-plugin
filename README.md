@@ -86,7 +86,7 @@ Para que persistan, agregar al archivo de perfil: `notepad $PROFILE` (crear si n
 
 ## Que incluye
 
-### Skills (31)
+### Skills (32)
 
 **Core:**
 
@@ -95,6 +95,7 @@ Para que persistan, agregar al archivo de perfil: `notepad $PROFILE` (crear si n
 | `/mv-dev:discovery` | **Descubrimiento tecnico: analiza brief y encuentra APIs, tablas y servicios existentes** |
 | `/mv-dev:mv-docs` | **Buscar documentacion de APIs y tablas SQL en Notion (fuente de verdad)** |
 | `/mv-dev:mv-instruction-generator` | Orquesta el workflow tecnico (Discovery, Fix, Sprint o PRD) segun el tipo de request |
+| `/mv-dev:crear-prd` | Genera un PRD estructurado (8 bloques) para trabajo de código en `docs/prd/CR-<id>.md`; consulta test-decision, no ejecuta código |
 
 **Conocimiento:**
 
@@ -213,11 +214,11 @@ manzanaverde-plugin/
     ├── ARCHITECTURE.md            # Arquitectura del plugin
     ├── CODE_STANDARDS.md          # Estandares de codigo MV
     │
-    ├── skills/                    # 31 skills invocables (Core, Conocimiento, Accion,
+    ├── skills/                    # 32 skills invocables (Core, Conocimiento, Accion,
     │   │                          #   Gherkin/BDD, Company Brain, Campañas CRM, Flutter)
     │   ├── discovery/             # Core: descubrimiento tecnico pre-proyecto
     │   ├── mv-docs/               # Core: lookup de APIs y tablas en Notion
-    │   ├── ...                    # ver seccion "Skills (31)" arriba para el listado completo
+    │   ├── ...                    # ver seccion "Skills (32)" arriba para el listado completo
     │
     ├── agents/                    # 4 agentes especializados
     │   ├── qa-agent.md
