@@ -261,6 +261,7 @@ manzanaverde-plugin/
 | [ARCHITECTURE.md](plugins/mv-dev/ARCHITECTURE.md) | Arquitectura del plugin |
 | [CODE_STANDARDS.md](plugins/mv-dev/CODE_STANDARDS.md) | Estandares de codigo de MV |
 | [DESIGN_TOKENS.md](DESIGN_TOKENS.md) | Design system completo |
+| [TRACEABILITY.md](docs/TRACEABILITY.md) | Convención de trazabilidad código→CR→experiment→KPI |
 | [CLAUDE.md](CLAUDE.md) | Contexto global (auto-cargado por Claude Code) |
 
 ## Seguridad

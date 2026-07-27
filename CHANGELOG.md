@@ -2,6 +2,15 @@
 
 Todos los cambios notables del plugin mv-dev se documentan aqui.
 
+## [Unreleased] — hacia 1.9.0
+
+### Added
+- **Convención de trazabilidad código→CR** (Fase 1 del PRD `crear-prd`): rama `cr/<cr_id>-<slug>`, trailer de commit `CR: <cr_id>` (+ opcional `Exp: <exp_id>`) y bloque de trazabilidad en el cuerpo del PR. Cierra el bucle de 4 capas del Company Brain (datalake ↔ Notion ↔ Discord) hasta el repo: registra qué código implementó cada iniciativa. Documentado en `docs/TRACEABILITY.md`, linkeado desde el README de la raíz.
+
+### Changed
+- **Templates de PR** (`.github/pull_request_template.md` y `plugins/mv-dev/templates/pr-template.md`): nuevo bloque "Trazabilidad" (CR / Experiment / PRD / KPI) al inicio, sin borrar lo existente.
+- **`validate-pre-push.sh`**: detecta el trailer `CR:` en los commits a pushear y emite un *warning* (`[trazabilidad]` a stderr) si falta. En Fase 1 **nunca bloquea**; el endurecimiento a fallo para ramas `cr/*` es una fase posterior.
+
 ## [1.8.0] - 2026-07-18
 
 ### Added
