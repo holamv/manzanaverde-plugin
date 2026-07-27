@@ -1,3 +1,10 @@
+## Trazabilidad
+
+- **CR:** <!-- CR-xxxx o "n/a" con razón -->
+- **Experiment:** <!-- exp_id o "n/a" -->
+- **PRD:** <!-- link a docs/prd/CR-xxxx.md o "n/a: BUG trivial" -->
+- **KPI:** <!-- kpi_definition_id o "n/a" -->
+
 ## Descripcion
 
 <!-- Describe brevemente que hace este PR y por que -->

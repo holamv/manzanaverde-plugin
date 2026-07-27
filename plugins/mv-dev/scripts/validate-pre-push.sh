@@ -11,6 +11,19 @@ ERRORS=0
 echo "Pre-push checks..."
 echo ""
 
+# --- Fase 1: trazabilidad codigo->CR (warning, nunca falla) ---
+# Detecta el trailer 'CR: <id>' en los commits que se van a pushear.
+# En Fase 1 solo avisa; el endurecimiento a fallo (solo ramas cr/*) es Fase 3.
+# Ver docs/TRACEABILITY.md.
+COMMITS_BODY="$(git log --format=%B "@{upstream}"..HEAD 2>/dev/null || git log --format=%B -5 2>/dev/null)"
+if [ -n "$COMMITS_BODY" ] && ! printf '%s\n' "$COMMITS_BODY" | grep -qE '^CR: *[A-Za-z0-9][A-Za-z0-9-]*'; then
+  echo "⚠️  [trazabilidad] Ningún commit declara 'CR: <id>'. Cadena código→CR incompleta." >&2
+  echo "   Convención: rama cr/<cr_id>-<slug> + trailer 'CR: <cr_id>' en el cuerpo del commit." >&2
+  echo "   Ver docs/TRACEABILITY.md" >&2
+  # Fase 1: warning only, NO exit 1.
+fi
+# --- fin trazabilidad Fase 1 ---
+
 # 1. TypeScript type checking
 echo "[1/3] Checking TypeScript types..."
 if command -v npx &> /dev/null && [ -f "tsconfig.json" ]; then
