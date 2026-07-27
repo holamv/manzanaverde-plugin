@@ -13,7 +13,7 @@ Plugin de Claude Code que permite a cualquier miembro del equipo de Manzana Verd
 ## Instalacion
 
 ```bash
-claude plugin add https://github.com/manzanaverde/manzanaverde-plugin
+claude plugin add https://github.com/manzanaverdelatam/manzanaverde-plugin
 ```
 
 ## Configuracion de tokens
@@ -86,22 +86,73 @@ Para que persistan, agregar al archivo de perfil: `notepad $PROFILE` (crear si n
 
 ## Que incluye
 
-### Skills (12)
+### Skills (31)
 
-| Comando | Tipo | Descripcion |
-|---------|------|-------------|
-| `/mv-dev:discovery` | **Core** | **Descubrimiento tecnico: analiza brief y encuentra APIs, tablas y servicios existentes** |
-| `/mv-dev:mv-docs` | **Core** | **Buscar documentacion de APIs y tablas SQL en Notion (fuente de verdad)** |
-| `/mv-dev:start-project` | Accion | Iniciar proyecto Next.js, Express o monorepo |
-| `/mv-dev:new-feature` | Accion | Scaffold completo de feature con TDD |
-| `/mv-dev:new-page` | Accion | Nueva pagina Next.js con metadata y loading states |
-| `/mv-dev:create-api` | Accion | Nuevo endpoint Express con validacion Zod |
-| `/mv-dev:deploy-staging` | Accion | Deploy a staging con pre-flight checks |
-| `/mv-dev:mv-api-consumer` | Conocimiento | Como consumir APIs de MV correctamente |
-| `/mv-dev:mv-db-queries` | Conocimiento | Queries seguros a la base de datos staging |
-| `/mv-dev:mv-design-system` | Conocimiento | Design system, colores, tipografia, componentes |
-| `/mv-dev:mv-testing` | Conocimiento | Como escribir tests en nuestro stack |
-| `/mv-dev:mv-deployment` | Conocimiento | Procedimientos de deployment |
+**Core:**
+
+| Comando | Descripcion |
+|---------|-------------|
+| `/mv-dev:discovery` | **Descubrimiento tecnico: analiza brief y encuentra APIs, tablas y servicios existentes** |
+| `/mv-dev:mv-docs` | **Buscar documentacion de APIs y tablas SQL en Notion (fuente de verdad)** |
+| `/mv-dev:mv-instruction-generator` | Orquesta el workflow tecnico (Discovery, Fix, Sprint o PRD) segun el tipo de request |
+
+**Conocimiento:**
+
+| Comando | Descripcion |
+|---------|-------------|
+| `/mv-dev:mv-api-consumer` | Como consumir APIs de MV correctamente |
+| `/mv-dev:mv-db-queries` | Queries seguros a la base de datos staging |
+| `/mv-dev:mv-design-system` | Design system, colores, tipografia, componentes |
+| `/mv-dev:mv-testing` | Como escribir tests en nuestro stack |
+| `/mv-dev:mv-deployment` | Procedimientos de deployment |
+
+**Accion (scaffolding web):**
+
+| Comando | Descripcion |
+|---------|-------------|
+| `/mv-dev:start-project` | Iniciar proyecto Next.js, Express o monorepo |
+| `/mv-dev:new-feature` | Scaffold completo de feature con TDD |
+| `/mv-dev:new-page` | Nueva pagina Next.js con metadata y loading states |
+| `/mv-dev:create-api` | Nuevo endpoint Express con validacion Zod |
+| `/mv-dev:deploy-staging` | Deploy a staging con pre-flight checks |
+
+**Testing y BDD (Gherkin):**
+
+| Comando | Descripcion |
+|---------|-------------|
+| `/mv-dev:notion-gherkin` | Obtiene requerimientos de Notion y genera archivos Gherkin (.feature) |
+| `/mv-dev:create-feature-file` | Genera un archivo Gherkin BDD desde una feature documentada en Notion |
+| `/mv-dev:gherkin-to-tests` | Lee archivos .feature y genera tests ejecutables (Jest, RTL, Playwright) |
+| `/mv-dev:test-decision` | Decide QUE test crear y CUANDO (y cuando no) para un cambio |
+
+**Company Brain (BizOps):**
+
+| Comando | Descripcion |
+|---------|-------------|
+| `/mv-dev:exp-iniciativa` | Crea iniciativa/experimento estructurado + baseline + diseno estadistico (Supabase + Notion) |
+| `/mv-dev:crear-cr` | Crea Change Requests / tareas con routing a canales Discord reales |
+| `/mv-dev:editar-experimento` | Edita un experimento existente sin re-crearlo; sync datalake + Notion + Discord |
+| `/mv-dev:informe-resultados` | Cierra el ciclo de medicion (resultado, impacto, insight) en la fecha de evaluacion |
+| `/mv-dev:kpi-context` | Vista 360 de un KPI o input (valores reales, tendencia, feeds cross-KPI) |
+
+**Campañas CRM (Growth):**
+
+| Comando | Descripcion |
+|---------|-------------|
+| `/mv-dev:proponer-campana` | Propone campaña completa (publico, volumen, horario, copy) desde genero + tema |
+| `/mv-dev:ejecutar-campana` | Ejecuta la campaña (ManyChat o BackOffice) y registra el experimento |
+| `/mv-dev:generar-lista-manychat` | Genera insumos ManyChat (CSV opt-in/dedup + JSON con CTA + hora sugerida) |
+
+**Flutter (App Movil):**
+
+| Comando | Descripcion |
+|---------|-------------|
+| `/mv-dev:flutter-architecture` | Define o revisa la arquitectura del proyecto Flutter |
+| `/mv-dev:flutter-visual-style` | Configura y valida design tokens, tipografia, colores y estilos |
+| `/mv-dev:flutter-brand-identity` | Revisa identidad de marca: logo, iconografia, tono, animaciones |
+| `/mv-dev:flutter-new-feature` | Scaffold completo de una nueva feature Flutter |
+| `/mv-dev:flutter-new-screen` | Nueva pantalla Flutter con estados de carga/error y widget tests |
+| `/mv-dev:flutter-component` | Widget reutilizable con design tokens, variantes y tests |
 
 ### Agentes (4)
 
@@ -162,19 +213,11 @@ manzanaverde-plugin/
     ├── ARCHITECTURE.md            # Arquitectura del plugin
     ├── CODE_STANDARDS.md          # Estandares de codigo MV
     │
-    ├── skills/                    # 12 skills invocables
+    ├── skills/                    # 31 skills invocables (Core, Conocimiento, Accion,
+    │   │                          #   Gherkin/BDD, Company Brain, Campañas CRM, Flutter)
     │   ├── discovery/             # Core: descubrimiento tecnico pre-proyecto
-    │   ├── start-project/
-    │   ├── new-feature/
-    │   ├── new-page/
-    │   ├── create-api/
-    │   ├── deploy-staging/
     │   ├── mv-docs/               # Core: lookup de APIs y tablas en Notion
-    │   ├── mv-api-consumer/
-    │   ├── mv-db-queries/
-    │   ├── mv-design-system/
-    │   ├── mv-testing/
-    │   └── mv-deployment/
+    │   ├── ...                    # ver seccion "Skills (31)" arriba para el listado completo
     │
     ├── agents/                    # 4 agentes especializados
     │   ├── qa-agent.md
@@ -224,8 +267,9 @@ manzanaverde-plugin/
 
 - Los hooks detectan **automaticamente** secrets expuestos y bloquean la operacion
 - Las queries a base de datos son **solo lectura** con LIMIT obligatorio
-- Las tablas sensibles (`payments`, `user_payment_methods`, etc.) estan **bloqueadas**
-- Supabase tiene acceso completo pero los tokens nunca se exponen en el codigo
+- El MCP server `mv-db-query` bloquea por defecto estas tablas: `user_credentials`, `payment_methods`, `payments`, `user_payment_methods`, `stripe_tokens`, `admin_sessions`
+- **Importante:** esta lista es un *guardrail*, no un control de acceso. Cada dev puede sobrescribirla con la variable `DB_BLOCKED_TABLES`, asi que evita accidentes pero no impide el intento. La proteccion real depende de los grants del usuario de la base de datos de staging.
+- El bloqueo **solo aplica al MCP `mv-db-query`**. El MCP de Supabase no comparte esta lista y tiene acceso completo; sus tokens nunca se exponen en el codigo.
 - Los tokens nunca se commitean: se cargan desde variables de entorno
 
 ## Soporte

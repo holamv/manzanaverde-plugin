@@ -30,7 +30,7 @@ const DB_CONFIG = {
 };
 
 const BLOCKED_TABLES = new Set(
-  (process.env.DB_BLOCKED_TABLES ?? "user_credentials,payment_methods,stripe_tokens,admin_sessions")
+  (process.env.DB_BLOCKED_TABLES ?? "user_credentials,payment_methods,payments,user_payment_methods,stripe_tokens,admin_sessions")
     .split(",")
     .map((t: string) => t.trim().toLowerCase())
 );

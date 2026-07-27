@@ -5,7 +5,7 @@ Instala y configura el plugin MV Dev en **5 minutos**.
 ## Instalación
 
 ```bash
-claude plugin add https://github.com/manzanaverde/manzanaverde-plugin
+claude plugin add https://github.com/manzanaverdelatam/manzanaverde-plugin
 ```
 
 ## Configuración (3 pasos)

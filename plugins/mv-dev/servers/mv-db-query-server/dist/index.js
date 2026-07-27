@@ -20846,7 +20846,7 @@ var DB_CONFIG = {
   database: process.env.DB_ACCESS_NAME
 };
 var BLOCKED_TABLES = new Set(
-  (process.env.DB_BLOCKED_TABLES ?? "user_credentials,payment_methods,stripe_tokens,admin_sessions").split(",").map((t) => t.trim().toLowerCase())
+  (process.env.DB_BLOCKED_TABLES ?? "user_credentials,payment_methods,payments,user_payment_methods,stripe_tokens,admin_sessions").split(",").map((t) => t.trim().toLowerCase())
 );
 var MAX_LIMIT = 100;
 function createMySQLDriver() {
