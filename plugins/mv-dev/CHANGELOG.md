@@ -11,6 +11,22 @@ Todos los cambios notables del plugin mv-dev se documentan aqui.
 - **Templates de PR** (`.github/pull_request_template.md` y `plugins/mv-dev/templates/pr-template.md`): nuevo bloque "Trazabilidad" (CR / Experiment / PRD / KPI) al inicio, sin borrar lo existente.
 - **`validate-pre-push.sh`**: detecta el trailer `CR:` en los commits a pushear y emite un *warning* (`[trazabilidad]` a stderr) si falta. En Fase 1 **nunca bloquea**; el endurecimiento a fallo para ramas `cr/*` es una fase posterior.
 
+## [1.8.1] - 2026-07-27
+
+### Fixed
+- **URL de instalacion (404)**: el comando de instalacion apuntaba a `github.com/manzanaverde/manzanaverde-plugin`, un org inexistente. Corregido a `manzanaverdelatam/manzanaverde-plugin` en las 4 rutas de onboarding (README de la raiz, `plugins/mv-dev/README.md`, `docs/01-QUICK_START.md` y el checklist de `docs/README.md`).
+- **`BLOCKED_TABLES` sin las tablas de pagos**: el README prometia bloquear `payments` y `user_payment_methods`, pero el default real no las incluia (`user_credentials,payment_methods,stripe_tokens,admin_sessions`). Se agregan al default de `DB_BLOCKED_TABLES` del `mv-db-query-server` (`src/index.ts` y el `dist/index.js` compilado) y a la doc de `mv-db-queries`.
+- **README desactualizado (12 skills → 31)**: los README de la raiz y del plugin listaban 12 skills cuando hay 31 en `plugins/mv-dev/skills/`. Se listan las 31 agrupadas por suite (Core, Conocimiento, Accion, Gherkin/BDD, Company Brain, Campañas CRM, Flutter) y se corrige el conteo.
+
+### Changed
+- **`CHANGELOG.md` movido a `plugins/mv-dev/`**: el marketplace instala `./plugins/mv-dev`, no la raiz del repo, asi que el historial de versiones ahora viaja junto al `plugin.json` que versiona. Queda linkeado desde la tabla de documentacion del README de la raiz.
+- **Seccion de seguridad (README de la raiz)**: el bloqueo de tablas se documenta explicitamente como *guardrail* sobrescribible por cada dev via `DB_BLOCKED_TABLES` (no un control de acceso), y se aclara que el MCP de Supabase no comparte esta lista.
+- **`obra/superpowers` fijado a `v6.2.0`** en `marketplace.json`: la entrada no tenia `ref`, asi que cada `plugin add` del marketplace de MV traia lo que hubiera en la rama por defecto de un repo de terceros en ese momento. Fijarlo hace la instalacion determinista y auditable.
+
+### Pendiente
+- **Grants reales del usuario de DB de staging** sobre `payments` / `user_payment_methods`: el cambio de `BLOCKED_TABLES` evita el accidente, no el intento. Si esas tablas son consultables a nivel de permisos, la lista no protege nada. Confirmar los grants del usuario de solo lectura de staging.
+- **`allow_no_kpi` y `force` sin documentar en Notion**: son bypasses legitimos y bien construidos de los hard-gates de `exp-iniciativa` y `editar-experimento` (`allow_no_kpi` exige `rationale` y esta marcado como discouraged; `force` devuelve 409 y exige rationale en el `resumen`), pero la pagina madre del Company Brain describe los gates sin mencionar que tienen puerta, asi que se leen como mas duros de lo que son. Es un fix de documentacion en Notion, no en el repo.
+
 ## [1.8.0] - 2026-07-18
 
 ### Added
