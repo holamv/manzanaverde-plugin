@@ -12,16 +12,18 @@ trigger_phrases:
   - "actualizar experimento"
   - "editar issue"
   - "cambiar KPI de exp"
-version: 1.0.1
+version: 1.1.0
 owner: Julio Mori
 based_on:
   - Reqs Carlos 2026-07-17 (Company Brain v2)
   - producto/estrategia/iniciativa-ai-native-dev/08-company-brain-v2-carlos.md
 ---
 
-# Skill `editar-experimento` v1.0.0
+# Skill `editar-experimento` v1.1.0
 
 > Edita un experimento existente y sincroniza **datalake + Notion (plantilla issue) + Discord** en una sola operación. Sin re-crear desde cero. Notion queda como **capa visual estructurada** del datalake — no se edita prosa a mano.
+>
+> **Fase 3 seguridad Brain:** toda la publicación es server-side — `POST /api/experiments/sync` es tri-destino (datalake + Notion + Discord) y el server ya publica con sus propias credenciales. El skill nunca escribe a Notion/Discord directo ni maneja tokens de servicio.
 
 ## Regla arquitectural (Carlos 2026-07-17)
 
@@ -56,12 +58,13 @@ based_on:
    - KPI (re-valida hard-gate: score ≥0.15 o kpi_definition_id explícito)
    - CRs/acciones · hipótesis (apuesta) · diseño · fecha_evaluacion · owner · estado
    ↓
-5. POST /api/experiments/sync — aplica los 3 destinos:
+5. POST /api/experiments/sync — el SERVER aplica los 3 destinos:
    - datalake: PATCH experiments
    - Notion: update plantilla issue (campos estructurados)
    - Discord: 🔄 update al hilo del CR (link_cr)
    ↓
-6. Si Notion devuelve ok=false (NOTION_TOKEN aún no en Vercel) → skill completa el update con el token de la sesión
+6. Si algún destino devuelve ok=false → reportar al usuario y reintentar vía /sync
+   (NO completar el update con tokens de cliente — sin escrituras client-side)
    ↓
 7. Reportar: qué cambió, en qué 3 destinos, links
 ```
@@ -85,7 +88,7 @@ based_on:
 
 ## Endpoint
 
-> ⚠️ Auth: requiere env var `MV_BRAIN_TOKEN`. Si no está definida, DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback.
+> ⚠️ Auth: header `x-api-key: $MV_BRAIN_TOKEN`. Si `MV_BRAIN_TOKEN` no está definida, DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback.
 
 ```bash
 POST /api/experiments/sync
@@ -113,11 +116,11 @@ Respuesta:
 
 `PATCH /api/experiments/:id` y `/sync` devuelven **409** si `estado='Medido'` y no viene `force=true`. Para re-abrir un experimento cerrado: `force=true` + rationale en `resumen`.
 
-## Manejo del write a Notion
+## Manejo del write a Notion (100% server-side)
 
-**Token "Token Brain" (`NOTION_TOKEN`) tiene RW total en workspace "Manzana Verde"** (verificado 2026-07-18: create+update+archive OK sobre Issue Inventory `202fb2dd` + Tasks `95684528`). El endpoint `/sync` actualiza los 3 destinos server-side.
+El token "Token Brain" de Notion tiene RW total en workspace "Manzana Verde" (verificado 2026-07-18: create+update+archive OK sobre Issue Inventory `202fb2dd` + Tasks `95684528`) y vive **solo en Vercel (data-lake-mv)**. El endpoint `/sync` actualiza los 3 destinos server-side.
 
-Flujo: `/sync` → PATCH datalake + PATCH Issue Inventory (`202fb2dd`, campos estructurados de la plantilla issue, sin romper estructura) + update al hilo Discord. Requiere `NOTION_TOKEN` = "Token Brain" en Vercel (data-lake-mv). Si aún no está en Vercel → el skill completa el update con el token de la sesión.
+Flujo: `/sync` → PATCH datalake + PATCH Issue Inventory (`202fb2dd`, campos estructurados de la plantilla issue, sin romper estructura) + update al hilo Discord. Si `notion.ok=false` en la respuesta → reportar y reintentar vía `/sync`; **NO completar el update con tokens de cliente** (Fase 3: sin escrituras client-side).
 
 **Status es tipo `status`** (no select). Fecha ejecucion/resultados = date expandido.
 
@@ -147,13 +150,15 @@ exp-iniciativa (crea) → editar-experimento (modifica) → informe-resultados (
 ## Dependencias
 
 - ✅ `PATCH /api/experiments/:id` con guard etapa + re-validar KPI (deployado)
-- ✅ `POST /api/experiments/sync` tri-destino (deployado)
-- ✅ `NOTION_TOKEN` "Token Brain" RW a Issue Inventory (`202fb2dd`) + Tasks (`95684528`) — workspace Manzana Verde, verificado 2026-07-18
-- ✅ `DISCORD_BOT_TOKEN` (bot CRS) para update al hilo
+- ✅ `POST /api/experiments/sync` tri-destino (deployado) — el server publica a datalake + Notion + Discord con sus propias credenciales (solo en Vercel `data-lake-mv`)
+- ✅ Token "Token Brain" de Notion RW a Issue Inventory (`202fb2dd`) + Tasks (`95684528`) — workspace Manzana Verde, verificado 2026-07-18, server-side
+- ✅ Update al hilo Discord: lo hace el server (bot CRS server-side, sin token de servicio en cliente)
+- ✅ Env cliente: solo `MV_BRAIN_TOKEN` (header `x-api-key`)
 - ✅ Conectado al plugin `mv-dev` v1.8.0 (skills/editar-experimento)
 
 ## Changelog
 
+- **v1.1.0 (2026-08-07): publicación migrada a server-side (Fase 3 seguridad Brain) — sin tokens de servicio en cliente.** Eliminado el uso de token de servicio del bot Discord y el fallback de completar el update Notion con token de sesión. `POST /api/experiments/sync` (params: `id`, `cambios{}`, `force`, `notion_page_id`) es tri-destino y el server ya publica. Auth cliente: solo `x-api-key: $MV_BRAIN_TOKEN`.
 - **v1.0.1 (2026-07-18)** — Token "Token Brain" válido (RW workspace Manzana Verde) reemplaza workaround MCP/401. IDs verificados: Issue Inventory `202fb2dd` + Tasks `95684528`. Status = tipo `status`.
 - **v1.0.0 (2026-07-17)** — Build inicial (req Carlos Company Brain v2). Edición tri-destino, guard etapa, plantilla issue, re-validación KPI.
 
