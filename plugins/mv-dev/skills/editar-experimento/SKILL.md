@@ -85,9 +85,11 @@ based_on:
 
 ## Endpoint
 
+> ⚠️ Auth: requiere env var `MV_BRAIN_TOKEN`. Si no está definida, DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback.
+
 ```bash
 POST /api/experiments/sync
-Headers: x-api-key: okr-mv-2026
+Headers: x-api-key: $MV_BRAIN_TOKEN
 Body: {
   "id": "exp-2026-014",
   "cambios": { "kpi_definition_id": 27, "fecha_evaluacion": "2026-08-01", "apuesta": "..." },

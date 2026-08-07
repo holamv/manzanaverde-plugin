@@ -130,7 +130,39 @@ La integracion solo puede acceder a las paginas que le compartas explicitamente.
 
 ---
 
-## 3. Supabase (Base de datos)
+## 3. MV Brain (Data Lake / Company Brain)
+
+`MV_BRAIN_TOKEN` es tu token **personal** para los skills que consultan el Company Brain (`kpi-context`, `proponer-campana`, `ejecutar-campana`, `generar-lista-manychat`, `editar-experimento`).
+
+### Paso a paso
+
+1. Solicitar tu token personal a **BizOps (Julio)** por canal privado (Slack DM o correo). No se comparte por Discord ni se publica en ningun repo.
+2. El token se entrega **una sola vez** — guardalo en tu gestor de contrasenas.
+3. Agregar a tu shell profile:
+
+**Mac / Linux:**
+```bash
+export MV_BRAIN_TOKEN="tu-token-personal"
+```
+
+**Windows (PowerShell):**
+```powershell
+$env:MV_BRAIN_TOKEN = "tu-token-personal"
+```
+
+4. Recargar el terminal y verificar con `echo $MV_BRAIN_TOKEN` (Mac/Linux) o `echo $env:MV_BRAIN_TOKEN` (Windows).
+
+### Nota sobre seguridad
+
+- El token es personal e identifica tus consultas. **Nunca** lo compartas ni lo pegues en un repo, Notion o Discord.
+- Expira a los 180 dias — pedir renovacion a BizOps.
+- Si se compromete, avisar a BizOps para revocarlo de inmediato.
+
+---
+
+## 4. Supabase (Base de datos) — SOLO perfil Tech
+
+> ⚠️ Este token solo lo necesita el equipo Tech. Si no haces desarrollo sobre la base de datos, **no lo configures** — los skills del Brain ya no lo usan.
 
 Supabase permite a Claude gestionar la base de datos completa: crear tablas, ejecutar migraciones, queries, edge functions, y mas. Tambien puede obtener automaticamente la URL y anon key del proyecto para el `.env`.
 
@@ -180,7 +212,7 @@ $env:SUPABASE_ACCESS_TOKEN = "sbp_tu-token-aqui"
 
 ## Configuracion rapida (todo junto)
 
-Si ya tienes los 3 tokens, agrega todo de una vez:
+Si ya tienes los tokens, agrega todo de una vez (`SUPABASE_ACCESS_TOKEN` solo perfil Tech):
 
 **Mac / Linux** - agregar a `~/.zshrc` o `~/.bashrc`:
 
@@ -197,7 +229,11 @@ export CONTEXT7_API_KEY="ctx7sk-..."
 # Obtener en: https://notion.so/my-integrations
 export NOTION_TOKEN="ntn_..."
 
-# Supabase - Base de datos
+# MV Brain - Company Brain / Data Lake (token personal)
+# Obtener: pedir a BizOps (Julio) por canal privado
+export MV_BRAIN_TOKEN="..."
+
+# Supabase - Base de datos (SOLO perfil Tech)
 # Obtener en: https://supabase.com/dashboard → Account → Access Tokens
 export SUPABASE_ACCESS_TOKEN="sbp_..."
 ```
@@ -219,7 +255,11 @@ $env:CONTEXT7_API_KEY = "ctx7sk-..."
 # Obtener en: https://notion.so/my-integrations
 $env:NOTION_TOKEN = "ntn_..."
 
-# Supabase - Base de datos
+# MV Brain - Company Brain / Data Lake (token personal)
+# Obtener: pedir a BizOps (Julio) por canal privado
+$env:MV_BRAIN_TOKEN = "..."
+
+# Supabase - Base de datos (SOLO perfil Tech)
 # Obtener en: https://supabase.com/dashboard → Account → Access Tokens
 $env:SUPABASE_ACCESS_TOKEN = "sbp_..."
 ```

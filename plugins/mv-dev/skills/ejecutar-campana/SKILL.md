@@ -27,8 +27,9 @@ Skill de EJECUCIÓN (Carlos: proponer y ejecutar son skills separados). La propu
 - Push: `deeplink_id` (default 8=dashboard; 5=RECONSUMO, 35=planes, 33=foodcourt), `tipo_notif` (organica/inorganica, default inorganica), y **cuándo**: enviar ya (`enviar:true`) o programar (`programar:{date,time}` — cron BO dispara entre 10:00-22:00).
 
 ## Paso 2 — Llama al endpoint
+> ⚠️ Auth: requiere env var `MV_BRAIN_TOKEN`. Si no está definida, DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback.
 ```bash
-curl -s -X POST -H "x-api-key: okr-mv-2026" -H "content-type: application/json" \
+curl -s -X POST -H "x-api-key: $MV_BRAIN_TOKEN" -H "content-type: application/json" \
   "https://data-lake-mv.manzanaverde.la/api/planner/execute" \
   -d '{
     "canal": "push",

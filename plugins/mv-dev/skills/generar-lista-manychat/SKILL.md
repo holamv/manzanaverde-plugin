@@ -12,8 +12,9 @@ Cuando el usuario quiera armar/enviar una campaña de ManyChat (o tras usar **pr
    - **campaña**: `nombre`, `descripcion`, `boton` (CTA principal), `boton2`/`boton3` (CTA extra opcionales — un mensaje puede tener varios botones), `hora`, `objetivo` (=objetivo de CAMPAÑA: venta/reconsumo/reactivacion/referidos/primer-pedido-foodcourt). El objetivo se escribe EXPLÍCITO en el JSON (`objetivo_campana`) para no inferirlo.
 
 2. Llama al endpoint:
+   > ⚠️ Auth: requiere env var `MV_BRAIN_TOKEN`. Si no está definida, DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback.
    ```bash
-   curl -s -X POST -H "x-api-key: okr-mv-2026" -H "content-type: application/json" \
+   curl -s -X POST -H "x-api-key: $MV_BRAIN_TOKEN" -H "content-type: application/json" \
      "https://data-lake-mv.manzanaverde.la/api/planner/manychat-list" \
      -d '{
        "filtros": { "category": 3, "pais": "PE", "limit": 1637 },
