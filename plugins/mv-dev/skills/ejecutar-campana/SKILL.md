@@ -21,9 +21,8 @@ Skill de EJECUCIÓN (Carlos: proponer y ejecutar son skills separados). La propu
 - Banner/Modal → el segmento vive en la campaña misma; va en `filtros`: `wallet_start/end` (saldo), `membership_start/end` (nº membresía), `foodcourt_less_days` (días sin pedir), `status_foodcourt` (array).
 
 **Extras por canal:**
-- Banner/Modal/Card (en `campana`): `end` (fecha fin, YYYY-MM-DD — REQUERIDO), `link`, `promotion_id`, `time_start`/`time_end` (franja horaria), `number_view` (cant. vistas), `timer`, `type_id` (tipo de campaña), `disclaimer`, `colors`, `descripcion_secundaria`.
-- ⚠️ La API del BO NO soporta (llenar manual en BO tras crear): **Ciudades, Vistas (pantallas), Audiencia, Slots, Imagen** — pedidos al chamo/Adin.
-- ⚠️ BUG BO (verificado 2026-07-15, campaña 1694): el doc lista `number_view`, `wallet_start/end`, `membership_start/end`, `foodcourt_less_days`, `status_foodcourt` pero el backend NO los persiste (solo graban time_start/end y type_id). Hasta que Adin lo arregle, ese segmento se llena manual en el BO. Avisa al usuario cuando use esos filtros.
+- Banner/Modal/Card (en `campana`): `end` (fecha fin, YYYY-MM-DD — REQUERIDO), `link`, `promotion_id`, `time_start`/`time_end` (franja horaria), `number_view` (cant. vistas), `timer`, `type_id` (tipo de campaña), `disclaimer`, `colors`, `descripcion_secundaria`, **`imagen_url`** (URL pública http(s) — el BO la descarga, redimensiona y sube a S3: banner 320x166, modal 1080x1920; si falla la descarga → 422 y no se crea) y `imagen_mobile_url`.
+- Banner/Modal (en `filtros`, API v3.1 — YA soportado): **`office_ids`** (ciudades), **`view_ids`** (pantallas), **`audience_ids`** (audiencia), **`slot_ids`** (slots) — arrays de ids; id inexistente → 422 y no se crea nada. Ya NO hay que llenarlos manual en el BO.
 - Push: `deeplink_id` (default 8=dashboard; 5=RECONSUMO, 35=planes, 33=foodcourt), `tipo_notif` (organica/inorganica, default inorganica), y **cuándo**: enviar ya (`enviar:true`) o programar (`programar:{date,time}` — cron BO dispara entre 10:00-22:00).
 
 ## Paso 2 — Llama al endpoint
@@ -50,6 +49,10 @@ Repórtale al usuario: canal, id creado, estado (inactiva/encolada/programada), 
 
 ## Reglas
 - NUNCA actives banner/modal ni envíes push sin confirmación explícita del usuario en esta conversación.
+- **Campo opcional: se manda con valor o NO se manda** — un `""`/null llega al BO, se ignora en silencio y la columna queda NULL con 201 (el executor ya filtra, pero no armes payloads con vacíos).
+- **Revisa `ignored_fields` en la respuesta**: si no está vacío, algo llegó vacío y no se guardó — muéstralo al usuario ANTES de activar. La respuesta también trae `verificacion` (lo realmente persistido: imagen, ciudades, vistas, audiencia, slots, wallet, membership) — confírmala con el usuario.
+- **409 al enviar push = YA SE ENVIÓ** hace <10 min (guard anti-duplicado del BO). NO reintentar — reenviaría a los mismos clientes. Solo con confirmación explícita repetir con `force: true`.
 - 422 audiencia vacía → afloja filtros (edad/wallet) y reintenta.
 - `campana.end` faltante en banner/modal → pídela, no inventes fechas largas.
 - Errores 401 → la key del Marketing API no está configurada en Vercel (avisar a Julio).
+- La respuesta trae `request_id` — cítalo al reportar cualquier problema a Tech (aparece en todos sus logs).
