@@ -12,8 +12,9 @@ description: Propone una campaña COMPLETA a partir de inputs simples (género +
 - Soporta los 5 formatos: WhatsApp, Correo (ManyChat) + Banner, Modal, Push (backoffice). Para banner/modal/push devuelve además prompt de imagen.
 
 ## Paso 1 — Llamar al endpoint
+> ⚠️ Auth: requiere env var `MV_BRAIN_TOKEN`. Si no está definida, DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback.
 ```bash
-curl -s -H "x-api-key: okr-mv-2026" \
+curl -s -H "x-api-key: $MV_BRAIN_TOKEN" \
   "https://data-lake-mv.manzanaverde.la/api/planner/propose?meta=300&canal=modal&pais=PE&genero=hombre&tema=mundial&objetivo=reactivacion"
 ```
 Canales válidos: `whatsapp`, `correo`, `banner`, `modal`, `push`. Si mandas `canal=banner|modal|push`, la respuesta trae `imagen_sugerida.prompt` (prompt listo para generar la imagen).

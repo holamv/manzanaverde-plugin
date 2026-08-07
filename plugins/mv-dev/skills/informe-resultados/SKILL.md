@@ -4,27 +4,45 @@ description: |
   Cierra la línea de datos de un experimento. En la fecha de evaluación, lee resultado del datalake,
   calcula impacto + significancia (t-test/z-test según diseño), genera informe markdown,
   publica a Discord + Notion + repo cache, y UPDATE en `experiments` con `estado='Medido'`.
-  Auto-trigger vía cron Supabase o invocación manual `/informe-resultados exp-2026-NNN`.
+  Medición + UPDATE + publicación corren server-side vía `POST /api/informe-resultados`
+  (auth `x-api-key: $MV_BRAIN_TOKEN`) — sin tokens de servicio en cliente.
+  Auto-trigger vía cron server-side o invocación manual `/informe-resultados exp-2026-NNN`.
 trigger_phrases:
   - "/informe-resultados"
   - "informe experimento"
   - "cerrar experimento"
   - "resultado de exp-"
-version: 1.0.0
+version: 1.1.0
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/05-skill-informe-resultados.md
 ---
 
-# Skill `informe-resultados` v1.0.0
+# Skill `informe-resultados` v1.1.0
 
 > Skill del Sprint Company Brain que cierra el loop del experimento creado por `exp-iniciativa`. Es la parte que vuelve "iniciativa con apuesta" en **aprendizaje compartido** para el Company Brain.
+
+## Ejecución — `POST /api/informe-resultados` (ÚNICO camino)
+
+> ⚠️ **Auth:** header `x-api-key: $MV_BRAIN_TOKEN`. Si `MV_BRAIN_TOKEN` no está definida, DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback. Los caminos de escritura directa al datalake con token de servicio (≤v1.0.0) fueron **eliminados** — Fase 3 seguridad Brain.
+
+```bash
+POST https://data-lake-mv.manzanaverde.la/api/informe-resultados
+Headers: x-api-key: $MV_BRAIN_TOKEN · Content-Type: application/json
+Body: {
+  "exp_id": "exp-2026-014",       # ✅ REQUERIDO — el param se llama exp_id, NO id
+  "resultado_override": "…",      # opcional — veredicto/resultado manual (flag --veredicto)
+  "force_remedir": true           # opcional — re-corre aunque estado='Medido' (flag --remedicion)
+}
+```
+
+El server ejecuta los 6 pasos de abajo (medición → test estadístico → veredicto → UPDATE `experiments` → publicación a los 3 destinos) y devuelve `{id, veredicto, impacto_pct, informe_md, ...}`. Los pasos del "Flujo" documentan **lo que hace el server** — el skill solo arma la llamada, interpreta la respuesta y presenta el informe.
 
 ## Cuándo se activa
 
 - **Manual:** `/informe-resultados exp-2026-014`.
-- **Auto (cron Supabase):** detecta experimentos con `fecha_evaluacion <= today() AND estado IN ('En curso', 'Propuesta')` → dispara cada 12h.
-- **Re-medir:** usuario pasa `--remedicion` → re-corre aunque `estado='Medido'`.
+- **Auto (cron server-side):** detecta experimentos con `fecha_evaluacion <= today() AND estado IN ('En curso', 'Propuesta')` → dispara cada 12h (infra del datalake, sin credenciales en cliente).
+- **Re-medir:** usuario pasa `--remedicion` → `force_remedir: true` re-corre aunque `estado='Medido'`.
 
 ## Flujo (6 pasos)
 
@@ -245,10 +263,10 @@ WHERE id = $1;
 *Informe generado por skill `informe-resultados` v1.0.0 · {timestamp}*
 ```
 
-**Publicación (3 destinos, paralelo):**
+**Publicación (3 destinos, paralelo — la ejecuta el SERVER):**
 
-1. **Discord:** canal área + `#datos-okrs` (resumen embed).
-2. **Notion:** comentario en row "Features a Medir" + update DB row con campos `resultado`, `impacto_pct`, `conclusion`.
+1. **Discord:** canal área + `#datos-okrs` (resumen embed) — el server publica con sus credenciales; el skill no llama a Discord.
+2. **Notion:** comentario en row "Features a Medir" + update DB row con campos `resultado`, `impacto_pct`, `conclusion` — server-side.
 3. **Repo:** snapshot en `notion-cache/_experimentos/{id}.md` → próximo sync horario lo recoge al Brain.
 
 ---
@@ -261,8 +279,8 @@ WHERE id = $1;
 | KPI cambió definición mid-experiment | Warning + usa `baseline_valor` original. Documentar en `insight`. |
 | `impacto_pct > 200%` | Sanity check → no auto-cerrar. Pedir confirmación humana. |
 | Hermes experiment (`hermes_proposal_id NOT NULL`) | Cruzar con `hermes_learnings`; si row vacía, llenarla con insight. |
-| Veredicto manual override (`--veredicto X`) | Usuario fuerza. Guardar con flag `_manual=true` en `insight`. |
-| Re-medición (`estado='Medido'` y user pide remedir) | Confirma → re-corre + actualiza con `_remedicion_count++` en `insight`. |
+| Veredicto manual override (`--veredicto X`) | Usuario fuerza → param `resultado_override` del endpoint. Guardar con flag `_manual=true` en `insight`. |
+| Re-medición (`estado='Medido'` y user pide remedir) | Confirma → param `force_remedir: true` re-corre + actualiza con `_remedicion_count++` en `insight`. |
 | Sin datos en datalake (endpoint devuelve null) | Veredicto `⏸️ Extender` + instrucción a Julio para arreglar endpoint. |
 | `baseline_valor IS NULL` | ABORT con mensaje claro: "experimento sin baseline, ejecutar `/exp-iniciativa --re-baseline` antes". |
 | Cron auto-trigger encuentra 10+ experimentos vencidos | Procesar en batch + reportar resumen a `#datos-okrs`. |
@@ -273,12 +291,11 @@ WHERE id = $1;
 
 | Input | Fuente |
 |-------|--------|
-| `exp_id` | Argumento CLI o cron query |
-| Acceso Supabase write | `SUPABASE_SERVICE_ROLE_KEY` |
-| Endpoint North Star o Silver query | `data-lake-mv.manzanaverde.la` |
-| Catálogo KPI | View `experiments_with_kpi` (ya hace LEFT JOIN) |
-| `NOTION_TOKEN` para publicar comentario | Config |
-| Discord webhooks por área | Config (mismo mapping que `crear-cr`) |
+| `exp_id` | Argumento CLI o cron query (param del endpoint: `exp_id`, NO `id`) |
+| Auth endpoints Brain | Env `MV_BRAIN_TOKEN` (header `x-api-key`). Si no está definida, DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback |
+| Medición (North Star / Silver) | Resuelta server-side por el endpoint |
+| Catálogo KPI | View `experiments_with_kpi` (server-side, ya hace LEFT JOIN) |
+| Publicación Notion + Discord | Server-side — credenciales solo en Vercel `data-lake-mv` |
 
 ## Outputs
 
@@ -295,7 +312,7 @@ WHERE id = $1;
 ```
 exp-iniciativa (paso 8)
   └── calendariza informe-resultados en fecha_evaluacion
-       └── cron Supabase / invocación manual
+       └── cron server-side / invocación manual
             └── informe-resultados
                  ├── UPDATE experiments
                  ├── publica Discord + Notion + repo
@@ -309,119 +326,34 @@ exp-iniciativa (paso 8)
 
 ---
 
-## Cron Supabase (auto-trigger)
+## Cron (auto-trigger — infra server-side)
 
-```sql
--- Edge Function programada cada 12h vía pg_cron
-SELECT cron.schedule(
-  'informe-resultados-daily',
-  '0 8,20 * * *',  -- 8am y 8pm
-  $$
-    SELECT net.http_post(
-      url := 'https://hzpycmczwkwbfrqzvfyz.supabase.co/functions/v1/informe-resultados-batch',
-      headers := jsonb_build_object('Authorization', 'Bearer ' || current_setting('app.service_role_key')),
-      body := jsonb_build_object()
-    );
-  $$
-);
-```
-
-Edge Function `informe-resultados-batch`:
-```typescript
-const due = await sb.from('experiments')
-  .select('id')
-  .lte('fecha_evaluacion', new Date().toISOString().slice(0, 10))
-  .in('estado', ['En curso', 'Propuesta']);
-
-for (const exp of due.data) {
-  await invokeSkillInformeResultados(exp.id);
-}
-```
+El batch corre **server-side** en la infra del datalake (cron cada 12h, 8am/8pm): selecciona experimentos con `fecha_evaluacion <= today()` y `estado IN ('En curso','Propuesta')` y llama internamente la misma lógica de `POST /api/informe-resultados` por cada uno. La configuración del cron y sus credenciales viven en el server — **nada de esto se ejecuta ni se configura desde el cliente/skill**. Desde el cliente, el equivalente manual es un `POST /api/informe-resultados` por `exp_id` vencido.
 
 ---
 
-## Stub Python (mínimo viable)
+## Stub Python (mínimo viable — solo endpoint Brain)
 
 ```python
-import os, datetime, requests, json
-from supabase import create_client
-from scipy import stats
-import numpy as np
+import os, sys, requests
 
-SUPABASE_URL = "https://hzpycmczwkwbfrqzvfyz.supabase.co"
-sb = create_client(SUPABASE_URL, os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 DATALAKE = "https://data-lake-mv.manzanaverde.la"
+TOKEN = os.environ.get("MV_BRAIN_TOKEN")
+if not TOKEN:
+    sys.exit("MV_BRAIN_TOKEN no definida. DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback.")
+HEADERS = {"x-api-key": TOKEN, "Content-Type": "application/json"}
 
-def informe_resultados_skill(exp_id, force_remedicion=False):
-    # 1. Recuperar
-    exp = sb.table("experiments_with_kpi").select("*").eq("id", exp_id).single().execute().data
+def informe_resultados_skill(exp_id, force_remedir=False, resultado_override=None):
+    body = {"exp_id": exp_id}                       # ⚠️ el param es exp_id, NO id
+    if force_remedir: body["force_remedir"] = True  # --remedicion
+    if resultado_override: body["resultado_override"] = resultado_override  # --veredicto X
 
-    if exp["estado"] == "Medido" and not force_remedicion:
-        return {"error": "already medido, use --remedicion to re-run"}
-
-    if not exp.get("baseline_valor"):
-        return {"error": "sin baseline, abort"}
-
-    # 2. Leer resultado
-    if exp.get("endpoint_north_star"):
-        resp = requests.get(f"{DATALAKE}{exp['endpoint_north_star']}", params={"weeks": "current-2:current"})
-        data = resp.json()
-        resultado_valor = data["latest"]
-        n_actual = sum(w.get("n", 0) for w in data.get("weekly", []))
-    elif exp.get("silver_path"):
-        result = sb.rpc("query_silver", {"path": exp["silver_path"], "from_week": isoweek(exp["fecha_launch"]), "to_week": isoweek(exp["fecha_evaluacion"])}).execute()
-        resultado_valor = result.data[0]["resultado"]
-        n_actual = result.data[0]["n_actual"]
-    else:
-        return {"error": "sin endpoint ni silver_path"}
-
-    impacto_pct = (resultado_valor - exp["baseline_valor"]) / exp["baseline_valor"] * 100
-
-    # 3. Test estadístico
-    diseno = exp.get("diseno_estadistico", {})
-    n_min = diseno.get("muestra_min", 30)
-    target_mde_pct = diseno.get("mde_pct", 5)
-
-    if n_actual < n_min:
-        # Extender
-        extend_days = max(7, int(diseno.get("duracion_dias", 14) * 0.5))
-        new_eval = (datetime.date.fromisoformat(exp["fecha_evaluacion"]) + datetime.timedelta(days=extend_days)).isoformat()
-        sb.table("experiments").update({"fecha_evaluacion": new_eval}).eq("id", exp_id).execute()
-        return {"id": exp_id, "veredicto": "⏸️ Extender", "razon": f"n={n_actual} < muestra_min={n_min}", "nueva_fecha_evaluacion": new_eval}
-
-    # Veredicto
-    if abs(impacto_pct) > 200:
-        veredicto_text = "⚠️ Sanity check"
-        conclusion = f"Impacto {impacto_pct:.1f}% fuera de rango. Revisar antes de cerrar."
-    elif impacto_pct >= target_mde_pct:
-        veredicto_text = "✅ Funcionó"
-        conclusion = f"Impacto +{impacto_pct:.1f}% supera target +{target_mde_pct}%. Escalar."
-    elif impacto_pct < 0:
-        veredicto_text = "🟥 Falló"
-        conclusion = f"Impacto {impacto_pct:.1f}%. Revertir cambio."
-    else:
-        veredicto_text = "⚠️ Parcial"
-        conclusion = f"Impacto +{impacto_pct:.1f}% bajo target. Iterar."
-
-    insight = generar_insight(exp, resultado_valor, impacto_pct, veredicto_text)
-    next_steps = generar_next_steps(exp, veredicto_text, resultado_valor)
-
-    # 5. UPDATE
-    sb.table("experiments").update({
-        "resultado": str(resultado_valor),
-        "impacto_pct": round(impacto_pct, 2),
-        "insight": insight,
-        "conclusion": conclusion,
-        "estado": "Medido",
-    }).eq("id", exp_id).execute()
-
-    # 6. Publicar
-    informe_md = render_informe(exp, resultado_valor, impacto_pct, n_actual, n_min, conclusion, insight, next_steps)
-    publicar_discord(exp["area"], informe_md)
-    publicar_notion(exp["notion_id"], informe_md)
-    publicar_repo(exp_id, informe_md)
-
-    return {"id": exp_id, "veredicto": veredicto_text, "impacto_pct": impacto_pct, "informe_md": informe_md}
+    r = requests.post(f"{DATALAKE}/api/informe-resultados", headers=HEADERS, json=body, timeout=60)
+    r.raise_for_status()
+    out = r.json()
+    # El server hizo: medición → test estadístico → veredicto → UPDATE experiments
+    # → publicación Discord + Notion + snapshot. El skill presenta el informe:
+    return out   # {id, veredicto, impacto_pct, informe_md, ...}
 ```
 
 ---
@@ -455,16 +387,17 @@ def informe_resultados_skill(exp_id, force_remedicion=False):
 ## Dependencias
 
 - ✅ Tabla `experiments` + vista `experiments_with_kpi`.
+- ✅ Endpoint `POST /api/informe-resultados` deployado en `data-lake-mv` (medición + UPDATE + publicación server-side, auth `x-api-key`).
+- ✅ Publicación Discord + Notion server-side — credenciales solo en Vercel `data-lake-mv`.
 - ⬜ Endpoints North Star completos (Julio: `frequency`, `funnel-cvr`, `new-subscribers v2`).
-- ⬜ Edge Function/endpoint UPDATE via service_role.
-- ⬜ Discord webhooks por área (mismo set que `crear-cr`).
-- ⬜ Cron Supabase `pg_cron` configurado para auto-trigger.
-- ⬜ Función Postgres `query_silver(path, from_week, to_week)` para fallback Opción B.
+- ⬜ Cron server-side configurado para auto-trigger batch.
+- ⬜ Función Postgres `query_silver(path, from_week, to_week)` para fallback Opción B (server-side).
 
 ---
 
 ## Changelog
 
+- **v1.1.0 (2026-08-07): publicación migrada a server-side (Fase 3 seguridad Brain) — sin tokens de servicio en cliente.** Eliminados los caminos de escritura directa al datalake con token de servicio (inputs, cron client-side, stub). Único camino: `POST /api/informe-resultados` con `x-api-key: $MV_BRAIN_TOKEN` — params `exp_id` (NO `id`), `resultado_override` (--veredicto), `force_remedir` (--remedicion). Medición, UPDATE `experiments` y publicación a 3 destinos corren server-side.
 - **v1.0.0 (2026-06-30)** — Build inicial post-skeleton
   - 6 pasos completos
   - Test estadístico multi-método (continuo, proporción, pre/post)

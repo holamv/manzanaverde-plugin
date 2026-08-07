@@ -46,7 +46,9 @@ based_on:
 
 ## Endpoint
 
-Base: `https://data-lake-mv.manzanaverde.la` · Auth: `x-api-key: okr-mv-2026`
+Base: `https://data-lake-mv.manzanaverde.la` · Auth: header `x-api-key: $MV_BRAIN_TOKEN`
+
+> ⚠️ `MV_BRAIN_TOKEN` es una variable de entorno. Si no está definida, DETENTE e indica al usuario que solicite su token personal a BizOps (Julio). NO uses ningún valor por defecto ni key hardcodeada.
 
 ### MODO KPI
 

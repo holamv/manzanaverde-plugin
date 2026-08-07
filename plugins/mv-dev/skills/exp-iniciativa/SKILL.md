@@ -2,7 +2,8 @@
 name: exp-iniciativa
 description: |
   Crea iniciativa/experimento estructurado, captura baseline del datalake, propone diseño estadístico,
-  y lo persiste en la tabla `experiments` de Supabase (proyecto `hzpycmczwkwbfrqzvfyz`).
+  y lo persiste vía endpoint server-side `POST /api/exp-iniciativa` (data-lake-mv) que escribe la
+  tabla `experiments` y crea el Issue Notion. Sin tokens de servicio en cliente.
   Genérico cross-area (Operaciones / Producto / Growth / Finanzas / MKT / Reconsumos / DK / CX).
   Bifurca a `mv-instruction-generator` v1.8.0 (Carlos) si area ∈ {Producto, Tech, Growth-Producto, Growth-Tech}.
   Co-llama a `crear-cr` para tareas clave. Cierra el ciclo con `informe-resultados` en fecha_evaluacion.
@@ -12,7 +13,7 @@ trigger_phrases:
   - "nuevo experimento"
   - "registrar BET"
   - "crear apuesta"
-version: 1.3.0
+version: 1.4.0
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/03-skill-exp-iniciativa.md
@@ -20,9 +21,11 @@ based_on:
   - mv-instruction-generator v1.8.0 (Fase 0 + Sprint additions)
 ---
 
-# Skill `exp-iniciativa` v1.0.0
+# Skill `exp-iniciativa` v1.4.0
 
 > Skill genérico cross-area del Sprint Company Brain. Reemplaza el flujo "crear issue manual en Notion" con un flujo que **estructura + mide + persiste** en `experiments`. Vincula con `crear-cr` (Discord/tasks) e `informe-resultados` (cierre línea de datos).
+>
+> **Fase 3 seguridad Brain:** la persistencia es 100% server-side vía `POST /api/exp-iniciativa` con header `x-api-key: $MV_BRAIN_TOKEN`. Si `MV_BRAIN_TOKEN` no está definida, DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback. El skill nunca escribe directo al datalake ni maneja tokens de servicio.
 
 ## Cuándo se activa
 
@@ -88,28 +91,29 @@ if (!kpi_match || score < 0.15) && !kpi_definition_id && !allow_no_kpi:
 
 
 
+Ambos hard-gates los **aplica el server** dentro de `POST /api/exp-iniciativa`. Para explorar/predecir el match antes de llamar, usar los endpoints de lectura del datalake (mismo header `x-api-key: $MV_BRAIN_TOKEN`):
+
 ```javascript
-// 1. Match kpi_definition_id en dris_definitions
-const kpi = await sb.from('dris_definitions')
-  .select('id, nombre, silver_path, endpoint_north_star')
-  .or(`nombre.ilike.%${input.metric_name}%,nombre.ilike.%${input.area}%`)
-  .limit(5);
+// 1. Match kpi_definition_id en el catálogo (server-side, sin acceso directo a la DB)
+const lookup = await fetch(
+  `https://data-lake-mv.manzanaverde.la/api/dris/lookup?q=${encodeURIComponent(input.metric_hint)}&search_inputs=true&include_inputs=true`,
+  { headers: { 'x-api-key': process.env.MV_BRAIN_TOKEN } }
+);
+// → candidatos {id, nombre, score, endpoint_north_star, ...}
 
-// 2a. Match → leer baseline
-if (kpi && kpi.endpoint_north_star) {
-  const baseline = await fetch(`https://data-lake-mv.manzanaverde.la${kpi.endpoint_north_star}?week_id=current`);
-  return baseline.value;
-}
+// 2a. Match con endpoint North Star → leer baseline
+const baseline = await fetch(
+  `https://data-lake-mv.manzanaverde.la${kpi.endpoint_north_star}?week_id=current`,
+  { headers: { 'x-api-key': process.env.MV_BRAIN_TOKEN } }
+);
 
-// 2b. Sin endpoint → query Silver via silver_path
-if (kpi && kpi.silver_path) {
-  return await sb.rpc('exec_silver_query', { path: kpi.silver_path, week: 'current' });
-}
+// 2b. Sin endpoint expuesto → el server resuelve baseline vía silver_path
+//     dentro de POST /api/exp-iniciativa (no hay query Silver client-side)
 
 // 2c. NO match
 // → opción A: pedir al usuario que defina el KPI (luego instrucción a Julio para agregarlo a dris_definitions)
 // → opción B: metrica_target text libre + flag kpi_definition_id IS NULL + warning
-// → opción C: override --no-metric con justificación 1-línea (se graba en apuesta.rationale)
+// → opción C: override --no-metric / allow_no_kpi con justificación 1-línea (se graba en apuesta.rationale)
 
 // 2d. Métrica existe pero NO expuesta en endpoints
 // → generar instrucción markdown:
@@ -163,21 +167,20 @@ Guarda en col `apuesta` (text).
 
 ### Paso 5 — Co-llama a `crear-cr` (si aplica)
 
-Si hay tareas clave en `acciones`:
+Si hay tareas clave en `acciones`, invocar `crear-cr` (que publica vía `POST /api/crear-cr`). **Pasar SIEMPRE `exp_id`**: el server auto-vincula `experiments.link_cr` con el permalink del thread/Notion (solo si `link_cr` estaba vacío — Fase 4.2). Ya no hace falta PATCHear `link_cr` desde el cliente; solo verificar que quedó seteado.
 
 ```javascript
 const cr_result = await invokeSkill('crear-cr', {
-  contexto: experiment.acciones,
+  acciones: experiment.acciones,            // string numerado — crear-cr lo splitea a acciones_array
   area: experiment.area,
+  tipo: 'iniciativa',
   owner_dri: experiment.owner_dri,
-  exp_id: experiment.id,
-  kpi: experiment.kpi_definition_id,
-  baseline: experiment.baseline_valor,
-  target: experiment.target_mde,
-  fecha_evaluacion: experiment.fecha_evaluacion,
+  exp_id: experiment.id,                    // → auto-link server-side de experiments.link_cr
+  issue_page_id: experiment.notion_id,      // relation al Issue paraguas
+  kpi_numbers: [experiment.kpi_definition_id],
+  deadline: experiment.fecha_evaluacion,
 });
-
-experiment.link_cr = cr_result.discord_permalink;
+// experiment.link_cr lo llena el server (verificar en la respuesta / GET /api/experiments/:id)
 ```
 
 ### Paso 6 — Veredicto soft-gate
@@ -190,27 +193,11 @@ experiment.link_cr = cr_result.discord_permalink;
 
 Nunca bloqueo duro — soft-gate.
 
-### Paso 7 — INSERT en `experiments`
+### Paso 7 — Persistir vía `POST /api/exp-iniciativa` (server-side)
 
-```sql
-INSERT INTO experiments (
-  id, nombre, apuesta, owner_dri, tipo, input_north_star,
-  area, kpi_definition_id, metrica_target, paises,
-  acciones, diseno_estadistico,
-  baseline_valor, baseline_fecha, target_mde,
-  fecha_launch, fecha_evaluacion, estado, fuente,
-  link_cr, notion_id, hermes_proposal_id
-) VALUES (
-  $1, $2, $3, $4, $5, $6,
-  $7, $8, $9, $10,
-  $11, $12::jsonb,
-  $13, $14, $15,
-  $16, $17, 'Propuesta', $18,
-  $19, $20, $21
-) RETURNING id;
-```
+El INSERT en `experiments` + la creación del Issue Notion los hace el **server**. El skill arma el brief y hace UNA llamada (ver sección "Persistencia — endpoint" abajo). No hay SQL ni escritura directa client-side.
 
-**ID generation:** `exp-{YYYY}-{secuencial-3-digit}` → consultar `SELECT MAX(id) FROM experiments WHERE id LIKE 'exp-2026-%'` y +1.
+**ID generation (server-side):** `exp-{YYYY}-{secuencial-3-digit}` — max+1 filtrando el formato canónico `^exp-YYYY-NNN$` (evita colisión con variants).
 
 **`fuente`:**
 - `'manual'` — BET cross-area normal (este skill, no dev)
@@ -250,35 +237,27 @@ INSERT INTO experiments (
 
 ---
 
-## Persistencia — endpoint
+## Persistencia — endpoint (ÚNICO camino)
 
-**Mientras Edge Function no exista** (sprint pendiente):
-
-```javascript
-// Via REST con service_role (env var SUPABASE_SERVICE_ROLE_KEY)
-const SUPABASE_URL = 'https://hzpycmczwkwbfrqzvfyz.supabase.co';
-const headers = {
-  'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-  'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-  'Content-Type': 'application/json',
-  'Prefer': 'return=representation'
-};
-
-const row = await fetch(`${SUPABASE_URL}/rest/v1/experiments`, {
-  method: 'POST',
-  headers,
-  body: JSON.stringify(experimentRow)
-});
-```
-
-**Cuando Edge Function exista** (Julio's build target ~04-jul):
+> ⚠️ **Auth:** header `x-api-key: $MV_BRAIN_TOKEN`. Si `MV_BRAIN_TOKEN` no está definida, DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback. La escritura directa al datalake desde el cliente (camino con token de servicio, versiones ≤v1.3.0) fue **eliminada** — Fase 3 seguridad Brain.
 
 ```javascript
-const row = await fetch('https://data-lake-mv.manzanaverde.la/api/experiments', {
+const resp = await fetch('https://data-lake-mv.manzanaverde.la/api/exp-iniciativa', {
   method: 'POST',
-  headers: { 'Authorization': `Bearer ${INTERNAL_TOKEN}`, 'Content-Type': 'application/json' },
-  body: JSON.stringify(experimentRow)
+  headers: { 'x-api-key': process.env.MV_BRAIN_TOKEN, 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    brief: '…',                       // ✅ REQUERIDO — texto estructurado de la iniciativa
+    owner_dri: 'Julio Mori',          // ✅ REQUERIDO
+    paises: ['PE', 'MX'],             // array (default ['PE'])
+    kpi_definition_id: 27,            // opcional — salta el hard-gate de KPI (id del catálogo)
+    allow_no_kpi: false,              // discouraged — exige rationale
+    skip_issue: false,                // true → no crea el Issue Notion
+    notion_issue_id: null,            // vincular Issue existente (Caso B)
+    source_notion_url: null,          // ingesta: página Notion cruda → enriquece el brief
+  }),
 });
+// El server: hard-gates KPI/baseline → INSERT experiments (id exp-YYYY-NNN)
+// → crea/vincula Issue en Issue Inventory (202fb2dd) → responde {id, kpi, baseline, issue, ingested_source, next_steps}
 ```
 
 ---
@@ -333,10 +312,10 @@ Schema completo: `producto/estrategia/iniciativa-ai-native-dev/02-experiments-sc
 
 | Input | Fuente |
 |-------|--------|
-| Borrador (texto o URL Notion) | Pegado por usuario o `notion-fetch` con URL |
-| Acceso datalake | `SUPABASE_SERVICE_ROLE_KEY` |
-| Catálogo KPI | Query a `dris_definitions` (cached 1h) |
-| Baseline | Endpoints North Star (`data-lake-mv.manzanaverde.la`) o query Silver |
+| Borrador (texto o URL Notion) | Pegado por usuario, `notion-fetch`, o param `source_notion_url` (ingesta server-side) |
+| Auth endpoints Brain | Env `MV_BRAIN_TOKEN` (header `x-api-key`). Si no está definida, DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback |
+| Catálogo KPI | `GET /api/dris/lookup` (server-side sobre `dris_definitions`) |
+| Baseline | Endpoints North Star (`data-lake-mv.manzanaverde.la`) o resolución server-side vía `silver_path` |
 
 ## Outputs
 
@@ -386,70 +365,43 @@ exp-iniciativa
 - ✅ Tabla `experiments` (migration 011 aplicada 2026-06-29).
 - ✅ Vista `experiments_with_kpi` (LEFT JOIN dris_definitions).
 - ✅ `mv-instruction-generator` v1.8.0 (Carlos, en piloto 2 semanas).
-- ⬜ Edge Function `/api/experiments` (Julio, target 04-jul).
+- ✅ Endpoint `POST /api/exp-iniciativa` deployado en `data-lake-mv` (persistencia + Issue server-side, auth `x-api-key`).
 - ⬜ Skill `crear-cr` (mismo build, paralelo).
 - ⬜ Cron Supabase trigger para `informe-resultados` auto en `fecha_evaluacion`.
 - ⚠️ Endpoints North Star parciales — `frequency`, `funnel-cvr`, `new-subscribers v2` pendientes.
 
 ---
 
-## Stub Python (día 1, mínimo viable)
+## Stub Python (mínimo viable — solo endpoints Brain)
 
 ```python
-import os, datetime, requests, json
-from supabase import create_client
+import os, sys, requests
 
-SUPABASE_URL = "https://hzpycmczwkwbfrqzvfyz.supabase.co"
-sb = create_client(SUPABASE_URL, os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+DATALAKE = "https://data-lake-mv.manzanaverde.la"
+TOKEN = os.environ.get("MV_BRAIN_TOKEN")
+if not TOKEN:
+    sys.exit("MV_BRAIN_TOKEN no definida. DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback.")
+HEADERS = {"x-api-key": TOKEN, "Content-Type": "application/json"}
 
-def exp_iniciativa_skill(input_text, notion_borrador_id=None):
-    # 1. Clasificar área
-    area = classify_area(input_text)
+def exp_iniciativa_skill(brief, owner_dri, paises=None, kpi_definition_id=None,
+                         skip_issue=False, notion_issue_id=None, source_notion_url=None):
+    # 1-6. Clasificación de área, challenge gate, apuesta y diseño estadístico
+    #      son razonamiento del skill (client-side, sin escrituras).
+    #      Los hard-gates KPI/baseline + INSERT + Issue Notion los aplica el server.
+    body = {"brief": brief, "owner_dri": owner_dri}
+    if paises: body["paises"] = paises
+    if kpi_definition_id: body["kpi_definition_id"] = kpi_definition_id   # salta hard-gate
+    if skip_issue: body["skip_issue"] = True
+    if notion_issue_id: body["notion_issue_id"] = notion_issue_id
+    if source_notion_url: body["source_notion_url"] = source_notion_url  # ingesta cruda
 
-    # 2. Bifurcar dev
-    if area in ("Producto", "Tech", "Growth - Producto", "Growth - Tech"):
-        return delegate_to_mv_instruction_generator(input_text, area, notion_borrador_id)
+    r = requests.post(f"{DATALAKE}/api/exp-iniciativa", headers=HEADERS, json=body, timeout=30)
+    r.raise_for_status()
+    exp = r.json()   # {id, kpi, baseline, issue, ingested_source, next_steps, ...}
 
-    # 3. Challenge minimal (3 Qs core)
-    apuesta_data = build_apuesta_from_qa(input_text)
-
-    # 4. Baseline datalake
-    baseline = fetch_north_star_baseline(area, apuesta_data["metric"]) or prompt_user_for_baseline()
-
-    # 5. Diseño estadístico
-    diseno = calcular_muestra(baseline, mde_pct=5, alpha=0.05, power=0.8)
-
-    # 6. Generar ID
-    last = sb.table("experiments").select("id").like("id", "exp-2026-%").order("id", desc=True).limit(1).execute()
-    seq = int(last.data[0]["id"].split("-")[-1]) + 1 if last.data else 1
-    exp_id = f"exp-2026-{seq:03d}"
-
-    # 7. INSERT
-    row = sb.table("experiments").insert({
-        "id": exp_id,
-        "nombre": apuesta_data["nombre"],
-        "apuesta": apuesta_data["apuesta_text"],
-        "owner_dri": apuesta_data["owner"],
-        "area": area,
-        "kpi_definition_id": apuesta_data.get("kpi_id"),
-        "baseline_valor": baseline,
-        "baseline_fecha": datetime.date.today().isoformat(),
-        "target_mde": apuesta_data.get("target"),
-        "diseno_estadistico": diseno,
-        "acciones": apuesta_data.get("acciones"),
-        "fuente": "manual",
-        "estado": "Propuesta",
-        "fecha_launch": datetime.date.today().isoformat(),
-        "fecha_evaluacion": (datetime.date.today() + datetime.timedelta(days=diseno["duracion_dias"])).isoformat(),
-        "notion_id": notion_borrador_id,
-    }).execute()
-
-    # 8. Co-llama crear-cr (si aplica)
-    if apuesta_data.get("acciones"):
-        cr = invoke_skill("crear-cr", {"contexto": apuesta_data["acciones"], "exp_id": exp_id, "area": area})
-        sb.table("experiments").update({"link_cr": cr["permalink"]}).eq("id", exp_id).execute()
-
-    return {"id": exp_id, "link": f"experiments/{exp_id}", "next": "informe-resultados en " + (datetime.date.today() + datetime.timedelta(days=diseno["duracion_dias"])).isoformat()}
+    # Co-llama crear-cr (si hay acciones) — pasar exp_id: el server auto-vincula
+    # experiments.link_cr con el permalink (solo si estaba vacío). Sin PATCH client-side.
+    return exp
 ```
 
 ---
@@ -491,13 +443,13 @@ exp-iniciativa
 
 Params: `notion_issue_id` (vincular existente) · `skip_issue=true` (omitir creación issue).
 
-### Creación del Issue via NOTION_TOKEN (2026-07-18 — token válido)
+### Creación del Issue — server-side (2026-07-18 — token válido)
 
-El token **"Token Brain"** (`NOTION_TOKEN`) tiene **RW total en workspace "Manzana Verde"** (create+update+archive verificado) con acceso a Issue Inventory (`202fb2dd`) + Tasks (`95684528`). El endpoint crea el Issue server-side.
+El token **"Token Brain"** de Notion tiene **RW total en workspace "Manzana Verde"** (create+update+archive verificado) con acceso a Issue Inventory (`202fb2dd`) + Tasks (`95684528`). Vive **solo en Vercel (data-lake-mv)** — el endpoint crea el Issue server-side.
 
 **Flujo primario (endpoint, sirve también para cron sin humano):**
-1. `POST /api/exp-iniciativa` → INSERT experiment en datalake (fuente) + crea Issue en Issue Inventory (`202fb2dd`) vía `NOTION_TOKEN` + guarda `notion_id` (page id) bidireccional.
-2. Requiere `NOTION_TOKEN` seteado en Vercel (data-lake-mv) = token "Token Brain". Mientras no esté en Vercel, el endpoint devuelve `issue.ok=false` y el skill completa el Issue con el token de la sesión.
+1. `POST /api/exp-iniciativa` → INSERT experiment en datalake (fuente) + crea Issue en Issue Inventory (`202fb2dd`) server-side + guarda `notion_id` (page id) bidireccional.
+2. Si el server devuelve `issue.ok=false` → **reportar al usuario y NO completar el Issue con tokens de cliente** (Fase 3: sin escrituras client-side). El reintento es server-side.
 
 **Campos del Issue (Issue Inventory, `status` type para Status):**
 `Issue Name` (title) · `Issue Description` (rich_text) · `Nombre KPIs`/`Meta KPIs` (rich_text) · `Fecha ejecucion` (date) · `Decision Type` (select) · `Decision Maker` (people) · `Status` (status).
@@ -522,6 +474,7 @@ Marco: Company Brain v2 (4 capas). Ver Notion "🏛️ Arquitectura v2 — 4 cap
 
 ## Changelog
 
+- **v1.4.0 (2026-08-07): publicación migrada a server-side (Fase 3 seguridad Brain) — sin tokens de servicio en cliente.** Eliminada la rama de escritura directa al datalake (REST con token de servicio) y el fallback de completar el Issue con token de sesión. Único camino: `POST /api/exp-iniciativa` (`brief`+`owner_dri` requeridos, `paises` array, `kpi_definition_id` salta hard-gate, `skip_issue`, `notion_issue_id`, `source_notion_url`) con `x-api-key: $MV_BRAIN_TOKEN`. Lookup KPI vía `GET /api/dris/lookup`. Paso 5: pasar `exp_id` a `crear-cr` → el server auto-vincula `experiments.link_cr` (Fase 4.2).
 - **v1.3.0 (2026-07-21)** — Carlos v2: Paso 0 RAG por KPI (consulta kpi-context al arrancar) + ingesta cruda `source_notion_url` (lee página Notion manual → enriquece brief). Respuesta agrega `ingested_source`.
 - **v1.2.1 (2026-07-18)** — Token "Token Brain" válido (RW workspace Manzana Verde) reemplaza workaround MCP OAuth. Issue DB = "Issue Inventory" `202fb2dd`. Endpoint crea Issue server-side (requiere NOTION_TOKEN en Vercel).
 - **v1.2.0 (2026-07-17)** — Modelo Issue↔Experimento (Carlos v2). Crea/vincula Issue Notion (plantilla) con estructura canónica + exp_id embebido. notion_id bidireccional. Params notion_issue_id + skip_issue.
