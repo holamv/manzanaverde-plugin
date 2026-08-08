@@ -130,6 +130,7 @@ Para que persistan, agregar al archivo de perfil: `notepad $PROFILE` (crear si n
 
 | Comando | Descripcion |
 |---------|-------------|
+| `/mv-dev:research-mv` | Investigación read-only previa: brief organizado desde datalake + Notion + docs cuando la info está difusa |
 | `/mv-dev:exp-iniciativa` | Crea iniciativa/experimento estructurado + baseline + diseno estadistico (Supabase + Notion) |
 | `/mv-dev:crear-cr` | Crea Change Requests / tareas con routing a canales Discord reales |
 | `/mv-dev:editar-experimento` | Edita un experimento existente sin re-crearlo; sync datalake + Notion + Discord |
@@ -214,7 +215,7 @@ manzanaverde-plugin/
     ├── ARCHITECTURE.md            # Arquitectura del plugin
     ├── CODE_STANDARDS.md          # Estandares de codigo MV
     │
-    ├── skills/                    # 32 skills invocables (Core, Conocimiento, Accion,
+    ├── skills/                    # 33 skills invocables (Core, Conocimiento, Accion,
     │   │                          #   Gherkin/BDD, Company Brain, Campañas CRM, Flutter)
     │   ├── discovery/             # Core: descubrimiento tecnico pre-proyecto
     │   ├── mv-docs/               # Core: lookup de APIs y tablas en Notion

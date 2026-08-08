@@ -34,6 +34,7 @@ claude plugin add https://github.com/manzanaverdelatam/manzanaverde-plugin
 
 **Company Brain (BizOps) — uso estandar para iniciativas medibles:**
 > Regla: toda iniciativa/experimento se convierte en fila estructurada del datalake, **siempre vinculada a un KPI o input** del catalogo (`dris_definitions` / `dris_inputs`). No crear iniciativas sueltas fuera de este flujo.
+- `/mv-dev:research-mv` - Investigación de SOLO LECTURA previa: navega el Brain completo (datalake + Notion + docs de repos) y entrega un brief organizado cuando la info está difusa. Úsalo ANTES de exp-iniciativa si falta claridad. Requiere `MV_BRAIN_TOKEN`
 - `/mv-dev:exp-iniciativa` - Crea iniciativa/experimento estructurado + baseline + diseno estadistico; persiste en `experiments` (Supabase) y crea/vincula el Issue en Notion
 - `/mv-dev:crear-cr` - Crea Change Requests / tareas con routing a canales Discord reales
 - `/mv-dev:editar-experimento` - Edita un experimento existente (link Notion o exp_id) sin re-crearlo; sync tri-destino datalake + Notion + Discord
