@@ -2,6 +2,11 @@
 
 Todos los cambios notables del plugin mv-dev se documentan aqui.
 
+## [1.10.0] — 2026-08-07
+
+### Added
+- **Skill `research-mv`** (solo lectura): investigación previa a crear experimentos/iniciativas cuando la información está difusa. Nada por todo el Brain — KPI + inputs vía `kpi-context`/`dris-lookup`, historial de experiments con conclusiones (anti-duplicados), docs del Brain con doble fuente (mirror local `notion-cache/` si el repo está clonado, o Notion directo si no — funciona sin acceso al repo Git), y gold data como fallback de baseline. Output: brief estructurado con gaps y siguiente paso sugerido, listo para `/exp-iniciativa`/`/crear-cr`/`/proponer-campana`. Atado a `MV_BRAIN_TOKEN` (sin token no opera; funciona con perfil `lectura`). Registrado en los README (32→33 skills).
+
 ## [Unreleased] — hacia 1.9.0
 
 ### Added
