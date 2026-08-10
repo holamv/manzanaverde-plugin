@@ -12,14 +12,14 @@ trigger_phrases:
   - "actualizar experimento"
   - "editar issue"
   - "cambiar KPI de exp"
-version: 1.1.0
+version: 1.2.0
 owner: Julio Mori
 based_on:
   - Reqs Carlos 2026-07-17 (Company Brain v2)
   - producto/estrategia/iniciativa-ai-native-dev/08-company-brain-v2-carlos.md
 ---
 
-# Skill `editar-experimento` v1.1.0
+# Skill `editar-experimento` v1.2.0
 
 > Edita un experimento existente y sincroniza **datalake + Notion (plantilla issue) + Discord** en una sola operación. Sin re-crear desde cero. Notion queda como **capa visual estructurada** del datalake — no se edita prosa a mano.
 >
@@ -84,7 +84,11 @@ based_on:
 | `nombre` | Issue Name | nombre |
 | `paises` | — | paises |
 
-**NO editables** (los pone `informe-resultados` al cerrar): `resultado`, `impacto_pct`, `insight`, `conclusion`, `id`, `created_at`, `fuente`.
+**Campos de cierre** (`resultado`, `impacto_pct`, `conclusion`, `insight`): **SÍ son editables vía `/sync` desde 2026-08-10** (BRAIN-CICLO-COMPLETO Fase 1) — al editarlos, el server publica el bloque de aprendizaje al Issue de Notion (`Issue Description` + `Fecha resultados`; textos >1900 chars se truncan con puntero al datalake). El camino normal para cerrar sigue siendo `informe-resultados` (mide + veredicto); editar el cierre a mano es para correcciones. Nota: pasar a `estado='Medido'` exige `conclusion` (en el mismo diff o ya persistida).
+
+**NO editables**: `id`, `created_at`, `fuente`.
+
+**`cambios` no puede ir vacío** (400). Para solo notificar por Discord sin editar nada: no-op `{"link_cr": "<mismo valor actual>"}` + `resumen` con el mensaje + `force` si está Medido.
 
 ## Endpoint
 

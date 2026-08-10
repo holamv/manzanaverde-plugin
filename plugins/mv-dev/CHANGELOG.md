@@ -2,6 +2,14 @@
 
 Todos los cambios notables del plugin mv-dev se documentan aqui.
 
+## [1.11.0] — 2026-08-10
+
+### Changed (BRAIN-CICLO-COMPLETO — instrucción Carlos 2026-08-10)
+- **exp-iniciativa v1.5.0**: contrato COMPLETO documentado (el endpoint ya aceptaba `nombre`, `fecha_launch`, `fecha_evaluacion`, `tipo`, `supuesto_riesgoso`, etc. pero el skill no lo decía — causa raíz de experimentos mal escritos). Nuevos overrides server-side: `apuesta` y `diseno_estadistico` explícitos (antes buildApuesta/calcDesign siempre pisaban). Nota operativa: experimentos retroactivos DEBEN pasar nombre/apuesta/fechas/diseño explícitos.
+- **editar-experimento v1.2.0**: los campos de cierre (`resultado`, `impacto_pct`, `conclusion`, `insight`) ahora SÍ son editables vía `/sync` y el server publica el aprendizaje al Issue de Notion (Issue Description + Fecha resultados, truncado >1900 con puntero al datalake). `cambios` no puede ir vacío; no-op documentado para solo-notificar.
+- **crear-cr v1.10.0**: modo comentario — `thread_id` + `mensaje` postea en un hilo existente sin crear CR (avisos de cierre). Valida snowflake, soporta dry_run.
+- Server (manzana-verde-datalake): informe-resultados ahora publica el cierre a Notion (antes 0 llamadas — el cron de cierre nunca actualizaba el HUB).
+
 ## [1.10.0] — 2026-08-07
 
 ### Added

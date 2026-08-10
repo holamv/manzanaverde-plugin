@@ -13,7 +13,7 @@ trigger_phrases:
   - "crear iniciativa discord"
   - "nuevo change request"
   - "abrir CR para"
-version: 1.9.0
+version: 1.10.0
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/04-skill-crear-cr.md
@@ -22,7 +22,7 @@ based_on:
   - memoria proyecto Discord: reference_discord_mv, project_mv_cr_workflow, feedback_discord_workflow, feedback_cr_tag_responsable, reference_notion_mv_databases
 ---
 
-# Skill `crear-cr` v1.9.0
+# Skill `crear-cr` v1.10.0
 
 > Sprint Company Brain — cable iniciativa/issue → datalake + Discord + Notion.
 >
@@ -101,10 +101,25 @@ Ningún fallo de (2) o (3) tumba la request: el CR queda registrado y se puede r
 }
 ```
 
+### Modo comentario (desde 2026-08-10 — BRAIN-CICLO-COMPLETO Fase 3)
+
+Para postear en un hilo Discord **YA existente** sin crear ningún CR (caso típico: avisar al dueño que su CR se cerró):
+
+```json
+POST /api/crear-cr
+{ "thread_id": "1532854276349493349", "mensaje": "<@discord_id> ✅ CR cerrado — …", "dry_run": true }
+```
+
+- `thread_id` = snowflake numérico del hilo (está en `crs.discord_thread_id` o en el permalink).
+- NO crea fila en `crs`, NO toca Notion — solo postea el mensaje (tope 1900 chars).
+- Respuesta: `{ok, mode:'comment', thread_id, discord:{message_id}}`. Usa `dry_run:true` primero para preview.
+- Incluye el tag `<@discord_id>` del dueño en el mensaje — sin tag no hay notificación.
+
 **Reglas de validación server-side:**
 - Falta `owner_dri` → 400.
 - Falta `acciones_array` (o vacío) → 400 con recordatorio "1 tarea = 1 CR = 1 Notion = 1 hilo".
 - `tipo='cross-equipos'` sin `cr_pair` → 400.
+- `thread_id` sin `mensaje` → 400 · `thread_id` no-snowflake → 400.
 - `tipo` default si se omite: `'weekly-cr'` si `es_weekly=true`, sino `'issue'`. **El skill debe pasar `tipo` explícito** (p.ej. `'iniciativa'` cuando hay `exp_id`) para obtener el naming correcto.
 
 ### Respuesta

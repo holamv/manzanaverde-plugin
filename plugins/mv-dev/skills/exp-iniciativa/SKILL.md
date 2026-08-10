@@ -13,7 +13,7 @@ trigger_phrases:
   - "nuevo experimento"
   - "registrar BET"
   - "crear apuesta"
-version: 1.4.0
+version: 1.5.0
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/03-skill-exp-iniciativa.md
@@ -21,7 +21,7 @@ based_on:
   - mv-instruction-generator v1.8.0 (Fase 0 + Sprint additions)
 ---
 
-# Skill `exp-iniciativa` v1.4.0
+# Skill `exp-iniciativa` v1.5.0
 
 > Skill genérico cross-area del Sprint Company Brain. Reemplaza el flujo "crear issue manual en Notion" con un flujo que **estructura + mide + persiste** en `experiments`. Vincula con `crear-cr` (Discord/tasks) e `informe-resultados` (cierre línea de datos).
 >
@@ -247,10 +247,37 @@ const resp = await fetch('https://data-lake-mv.manzanaverde.la/api/exp-iniciativ
   headers: { 'x-api-key': process.env.MV_BRAIN_TOKEN, 'Content-Type': 'application/json' },
   body: JSON.stringify({
     brief: '…',                       // ✅ REQUERIDO — texto estructurado de la iniciativa
-    owner_dri: 'Julio Mori',          // ✅ REQUERIDO
+    owner_dri: 'Julio Mori',          // ✅ REQUERIDO (o se deriva del token)
+    // ── Identidad del experimento (SIEMPRE pasarlos si los conoces — evita defaults malos)
+    nombre: 'Referidos reconsumo MX', // título limpio (default: brief[0..100] — feo)
+    apuesta: 'Creemos que …',         // OVERRIDE: si viene, el server NO la construye con
+                                      // buildApuesta() (que corta el brief a 200 chars y
+                                      // duplica el "Creemos que")
+    tipo: 'BET customer-facing',      // BET interno (default) | BET customer-facing | BUG
+    supuesto_riesgoso: '…',
+    prueba_barata: '…',
+    acciones: '1. … 2. …',            // numeradas
+    // ── Métrica y baseline
+    metric_hint: 'reconsumo MX',      // buscar KPI por nombre
+    kpi_definition_id: 27,            // salta el hard-gate de KPI (id del catálogo)
+    area_hint: 'Growth',              // override clasificación
+    baseline_valor: 18.5,
+    baseline_fecha: '2026-08-01',
+    target_mde: '24%',
+    // ── Fechas y diseño
+    fecha_launch: '2026-08-10',       // ⚠️ RETROACTIVOS: pasarla SIEMPRE (default: hoy)
+    fecha_evaluacion: '2026-08-24',   // default: launch + duracion_dias
+    duracion_dias: 14,
+    mde_pct: 5,
+    diseno_estadistico: null,         // OVERRIDE: objeto {sigma, duracion_dias, …}. Si viene,
+                                      // el server NO calcula con calcDesign() (que estima
+                                      // sigma ≈ 0.3×baseline — error 3.2x en exp-2026-020)
+    // ── Flags
     paises: ['PE', 'MX'],             // array (default ['PE'])
-    kpi_definition_id: 27,            // opcional — salta el hard-gate de KPI (id del catálogo)
     allow_no_kpi: false,              // discouraged — exige rationale
+    allow_no_baseline: false,         // discouraged — exige rationale
+    allow_duplicate: false,
+    rationale: null,
     skip_issue: false,                // true → no crea el Issue Notion
     notion_issue_id: null,            // vincular Issue existente (Caso B)
     source_notion_url: null,          // ingesta: página Notion cruda → enriquece el brief
@@ -259,6 +286,8 @@ const resp = await fetch('https://data-lake-mv.manzanaverde.la/api/exp-iniciativ
 // El server: hard-gates KPI/baseline → INSERT experiments (id exp-YYYY-NNN)
 // → crea/vincula Issue en Issue Inventory (202fb2dd) → responde {id, kpi, baseline, issue, ingested_source, next_steps}
 ```
+
+> ⚠️ **Experimento retroactivo (ya ejecutado):** pasa SIEMPRE `nombre`, `apuesta`, `fecha_launch`, `fecha_evaluacion` y `diseno_estadistico` explícitos — si no, el server los deriva mal (apuesta cortada, fechas de hoy, sigma estimada). Regla descubierta cerrando exp-2026-020/021 (2026-08-10).
 
 ---
 
