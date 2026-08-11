@@ -12,14 +12,14 @@ trigger_phrases:
   - "actualizar experimento"
   - "editar issue"
   - "cambiar KPI de exp"
-version: 1.1.0
+version: 1.3.0
 owner: Julio Mori
 based_on:
   - Reqs Carlos 2026-07-17 (Company Brain v2)
   - producto/estrategia/iniciativa-ai-native-dev/08-company-brain-v2-carlos.md
 ---
 
-# Skill `editar-experimento` v1.1.0
+# Skill `editar-experimento` v1.3.0
 
 > Edita un experimento existente y sincroniza **datalake + Notion (plantilla issue) + Discord** en una sola operación. Sin re-crear desde cero. Notion queda como **capa visual estructurada** del datalake — no se edita prosa a mano.
 >
@@ -83,8 +83,15 @@ based_on:
 | `tipo` | Decision Type | tipo |
 | `nombre` | Issue Name | nombre |
 | `paises` | — | paises |
+| `fecha_launch` | — | fecha_launch (libre desde 2026-08-10) |
+| `doc_repo` / `doc_path` | — | puntero al PRD (DOCS-BRAIN Fase 1) — libres |
+| `baseline_valor` | — | **solo con `force=true`** — editarlo reescribe la vara del experimento; sin force → 400 con hint |
 
-**NO editables** (los pone `informe-resultados` al cerrar): `resultado`, `impacto_pct`, `insight`, `conclusion`, `id`, `created_at`, `fuente`.
+**Campos de cierre** (`resultado`, `impacto_pct`, `conclusion`, `insight`): **SÍ son editables vía `/sync` desde 2026-08-10** (BRAIN-CICLO-COMPLETO Fase 1) — al editarlos, el server publica el bloque de aprendizaje al Issue de Notion (`Issue Description` + `Fecha resultados`; textos >1900 chars se truncan con puntero al datalake). El camino normal para cerrar sigue siendo `informe-resultados` (mide + veredicto); editar el cierre a mano es para correcciones. Nota: pasar a `estado='Medido'` exige `conclusion` (en el mismo diff o ya persistida).
+
+**NO editables**: `id`, `created_at`, `fuente`.
+
+**`cambios` no puede ir vacío** (400). Para solo notificar por Discord sin editar nada: no-op `{"link_cr": "<mismo valor actual>"}` + `resumen` con el mensaje + `force` si está Medido.
 
 ## Endpoint
 
@@ -115,6 +122,21 @@ Respuesta:
 ### Guard de etapa
 
 `PATCH /api/experiments/:id` y `/sync` devuelven **409** si `estado='Medido'` y no viene `force=true`. Para re-abrir un experimento cerrado: `force=true` + rationale en `resumen`.
+
+## 🆕 Borrar un experimento — `DELETE` con cascade (2026-08-11)
+
+Editar no siempre alcanza — a veces la iniciativa se creó mal y hay que deshacerla del todo, no corregirla:
+
+```bash
+DELETE /api/experiments/{id}?cascade=true&confirm={id}
+Headers: x-api-key: $MV_BRAIN_TOKEN
+```
+
+- `confirm` debe ser **exactamente** el `id` — sin eso, 400 (no puede ser un accidente).
+- `estado='Medido'` → 400 salvo `&force=true` ("evidencia, no borrador").
+- `cascade=true`: borra `experiments` + sus `crs` (por `exp_id`) + archiva Notion (Issue+Tasks) + borra el/los hilo(s) de Discord. Responde `{ok, deleted: {experiments, crs, notion, discord}}` por destino — 207 si algo falló, reintentable.
+- Sin `cascade`: borra solo la fila de `experiments` y devuelve la lista de huérfanos para decidir a mano.
+- ⚠️ El `id` no se recicla: recrear la iniciativa borrada le asigna el siguiente `exp-YYYY-NNN`, no el mismo.
 
 ## Manejo del write a Notion (100% server-side)
 
@@ -158,6 +180,8 @@ exp-iniciativa (crea) → editar-experimento (modifica) → informe-resultados (
 
 ## Changelog
 
+- **v1.3.0 (2026-08-11): puntero al PRD + baseline protegido.** `doc_repo`/`doc_path`/`fecha_launch` editables libres vía `/sync`; `baseline_valor` editable **solo con `force=true`** (editarlo reescribe la vara del experimento — sin force, 400 con hint). Documentado `DELETE /api/experiments/:id?cascade=true&confirm=<id>` (DOCS-BRAIN Fix 1) para deshacer una iniciativa completa cuando editar no alcanza — ver sección "Borrar un experimento".
+- **v1.2.0 (2026-08-10): campos de cierre editables.** `resultado`/`impacto_pct`/`conclusion`/`insight` pasan a ser editables vía `/sync` (antes: solo los ponía `informe-resultados`) — al editarlos, el server publica el bloque de aprendizaje al Issue de Notion. `cambios` no puede ir vacío (400); documentado el no-op para solo-notificar por Discord.
 - **v1.1.0 (2026-08-07): publicación migrada a server-side (Fase 3 seguridad Brain) — sin tokens de servicio en cliente.** Eliminado el uso de token de servicio del bot Discord y el fallback de completar el update Notion con token de sesión. `POST /api/experiments/sync` (params: `id`, `cambios{}`, `force`, `notion_page_id`) es tri-destino y el server ya publica. Auth cliente: solo `x-api-key: $MV_BRAIN_TOKEN`.
 - **v1.0.1 (2026-07-18)** — Token "Token Brain" válido (RW workspace Manzana Verde) reemplaza workaround MCP/401. IDs verificados: Issue Inventory `202fb2dd` + Tasks `95684528`. Status = tipo `status`.
 - **v1.0.0 (2026-07-17)** — Build inicial (req Carlos Company Brain v2). Edición tri-destino, guard etapa, plantilla issue, re-validación KPI.
