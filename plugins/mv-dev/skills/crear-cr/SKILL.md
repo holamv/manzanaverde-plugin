@@ -13,7 +13,7 @@ trigger_phrases:
   - "crear iniciativa discord"
   - "nuevo change request"
   - "abrir CR para"
-version: 1.10.0
+version: 1.11.0
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/04-skill-crear-cr.md
@@ -22,12 +22,12 @@ based_on:
   - memoria proyecto Discord: reference_discord_mv, project_mv_cr_workflow, feedback_discord_workflow, feedback_cr_tag_responsable, reference_notion_mv_databases
 ---
 
-# Skill `crear-cr` v1.10.0
+# Skill `crear-cr` v1.11.0
 
 > Sprint Company Brain — cable iniciativa/issue → datalake + Discord + Notion.
 >
 > **Reglas clave:**
-> 1. **🔥 REGLA CRÍTICA — 1 tarea = 1 CR = 1 Notion task = 1 Discord thread.** Si la iniciativa tiene N acciones, hay que crear N CRs separados (no 1 thread con todas las acciones dentro). Cada CR es atómico: tiene su propia Notion page, su propio responsable, su propio deadline, su propio DoD. Excepción: `#iniciativas-tech` consolida 1 hilo por OWNER (lo aplica el server automáticamente).
+> 1. **🔥 REGLA CRÍTICA — 1 tarea = 1 CR = 1 Notion task = 1 Discord thread.** Aplica a weekly (`es_weekly`) y cross-equipos (`cr_pair`): si hay N acciones, hay que crear N CRs separados (no 1 thread con todas las acciones dentro). Cada CR es atómico: tiene su propia Notion page, su propio responsable, su propio deadline, su propio DoD. Excepciones: (a) `#iniciativas-tech` consolida 1 hilo por OWNER (lo aplica el server automáticamente); (b) **`tipo='iniciativa'` = exactamente 2 CRs canónicos** derivados del experiment ("Ejecución" + "Medición y conclusiones") — el detalle de tareas vive en el PRD, los CRs son puntos de control (ver "Modo INICIATIVA").
 > 2. **Reunión semanal** — tarea que sale de una Weekly Exec (`es_weekly=true`) → `#weekly-exec-okrs`. Se crean con `crear-cr` directo cuando hay contexto de la reunión.
 > 3. **Issue/iniciativa tech** (software · Producto/Tech/Growth-Tech) → `#iniciativas-tech`.
 > 4. **Issue no-tech** → `#issues-líderes` (owner líder o estratégico) o `#issues-general` (equipo).
@@ -68,7 +68,9 @@ Ningún fallo de (2) o (3) tumba la request: el CR queda registrado y se puede r
   "owner_notion_id": "uuid",               // opcional — si falta, lookup server-side en LEADERS
   "owner_discord_id": "id",                // opcional — idem
 
-  "acciones_array": [                      // ✅ REQUERIDO (400 si falta o vacío) — 1 item = 1 CR = 1 Notion = 1 hilo
+  "acciones_array": [                      // ✅ REQUERIDO (400 si falta o vacío) — 1 item = 1 CR = 1 Notion = 1 hilo.
+                                           //    EXCEPCIÓN: tipo='iniciativa' NO lo exige (puede omitirse; el server lo IGNORA
+                                           //    y deriva 2 CRs canónicos del experiment — si mandas acciones, se colapsan)
     {
       "nombre_corto": "Piloto 200 clientes",   // título del CR
       "descripcion": "…",
@@ -92,7 +94,7 @@ Ningún fallo de (2) o (3) tumba la request: el CR queda registrado y se puede r
   "weekly_sem": 32,                        // número de semana para naming weekly
   "deadline": "2026-08-15",                // fallback global si la acción no trae deadline
 
-  "exp_id": "exp-2026-014",                // vincula al experimento: refs + naming iniciativa + AUTO-LINK server-side de experiments.link_cr con el permalink del thread/Notion (solo si estaba vacío) — SIEMPRE pasarlo cuando el CR corresponde a un experiment del datalake
+  "exp_id": "exp-2026-014",                // vincula al experimento: refs + naming iniciativa + AUTO-LINK server-side de experiments.link_cr con el permalink del thread/Notion (solo si estaba vacío) — SIEMPRE pasarlo cuando el CR corresponde a un experiment del datalake. ✅ REQUERIDO si tipo='iniciativa' (400 sin él)
   "issue_page_id": "notion-page-id",       // relation `Issue Inventory (Tasks)` en la task
   "kpi_numbers": [27, 64],                 // NÚMEROS del catálogo dris_definitions (no strings)
   "sin_prd_rationale": "…",                // se graba junto al CR (bypass gate PRD)
@@ -115,9 +117,59 @@ POST /api/crear-cr
 - Respuesta: `{ok, mode:'comment', thread_id, discord:{message_id}}`. Usa `dry_run:true` primero para preview.
 - Incluye el tag `<@discord_id>` del dueño en el mensaje — sin tag no hay notificación.
 
+### Modo INICIATIVA (desde 2026-08-11 — DOCS-BRAIN Fase 3): 2 CRs + 1 hilo + 1 mensaje
+
+`tipo='iniciativa'` desvía a la rama `handleIniciativa` del server. La regla 1-tarea-1-CR **no aplica acá**: el detalle de tareas vive en el PRD, los CRs son puntos de control.
+
+- **`exp_id` es REQUERIDO** → 400 sin él ("los 2 CRs canónicos se derivan del experiment") · 404 si el experiment no existe en el datalake.
+- **`acciones_array` se IGNORA** (puede omitirse — es la forma recomendada). Si mandas acciones igual, el server las **COLAPSA** en los 2 CRs canónicos y lo avisa en `next_steps` ("Las N acciones enviadas se colapsaron en 2 CRs canónicos — el detalle de tareas va al PRD").
+- El server crea **exactamente 2 CRs canónicos** derivados del experiment:
+
+| # | Título | Deadline | DoD |
+|---|--------|----------|-----|
+| 1 | `Ejecución — {nombre}` | `experiments.fecha_launch` (fallback `deadline` top-level) | PRD ejecutado hasta el launch · Piloto en marcha |
+| 2 | `Medición y conclusiones — {nombre}` | `experiments.fecha_evaluacion` | /informe-resultados corrido · Gate decidido · insight y conclusion escritos |
+
+**Flujo two-pass server-side:**
+
+1. **1ª pasada — datalake + Notion por CR** (sin Discord): por cada uno de los 2 CRs → `INSERT cr-YYYY-NNN` en `public.crs` (`tipo='iniciativa'`, `es_weekly=false`, `kpi_numbers=[kpi_definition_id]` heredado del experiment, `exp_id`) + página en Notion Tasks DB.
+2. **2ª pasada — UN hilo con UN mensaje**: crea un solo hilo (naming `Iniciativa - {owner} - {DD/MM/YYYY} - {exp_id}`) y postea un solo mensaje (`buildIniciativaBody`) con:
+   - tag `<@owner_discord_id>`;
+   - `🧪 **Iniciativa — {nombre}** · experiments/{exp_id}`;
+   - la **apuesta** del experiment escrita en el hilo (se trunca al presupuesto de 1990 chars; la lista de CRs nunca se trunca);
+   - `📄 PRD:` link al **espejo Notion** de la DB "📄 Docs de Proyecto (Git)" (`a45556da-0f43-4939-961c-ef2db22349ac`, query por prop `exp_id`) — fallback: texto `doc_repo/doc_path`, o `sin puntero (correr /crear-prd)` si el experiment no tiene punteros;
+   - `📎 Notion iniciativa:` (el Issue del experiment, `experiments.notion_id`);
+   - `🎯 KPI:` **verbatim** `#id nombre` del catálogo `dris_definitions` · `📅 Launch` y `Evaluación`;
+   - lista `**CRs:**` con nombre + link Notion de cada uno de los 2 CRs.
+
+Después, PATCH de permalinks + `sync_status` en ambas filas de `crs` (ambas apuntan al MISMO hilo) y cross-link del permalink a las 2 páginas Notion.
+
+- **`experiments.link_cr` = permalink del HILO** (cambio de semántica intencional: el hilo ES la conversación de la iniciativa — `/sync` y `/informe-resultados` postean ahí). Solo se escribe si `link_cr` estaba vacío.
+- **Routing sin cambios:** la iniciativa se enruta con el `routeChannel()` v1.8.0 normal (tech → `#iniciativas-tech`, no-tech → líderes/general, etc.).
+
+**Respuesta** — 201 (todos los destinos ok) / 207 (parcial):
+
+```jsonc
+{
+  "ok": true,
+  "mode": "iniciativa",
+  "exp_id": "exp-2026-014",
+  "canal": "#issues-líderes",
+  "thread_name": "Iniciativa - Julio Mori - 15/08/2026 - exp-2026-014",
+  "thread_permalink": "https://discord.com/channels/619991595613290496/…",
+  "discord": { "thread_ok": true, "message_ok": true },
+  "created": [ /* 2 items: {cr_id, titulo, datalake, notion_url, notion_page_id, notion_ok} */ ],
+  "link_cr": "https://discord.com/channels/…",       // = thread_permalink
+  "next_steps": ["…colapso de acciones si aplicó…", "El detalle del plan vive en el PRD; editarlo ahí, no en los CRs."]
+}
+```
+
+`dry_run:true` soportado → 200 con `crs_preview` (título/deadline/DoD de los 2 CRs), `discord_body_preview` (preview completo del mensaje del hilo), `collapsed_actions` y `thread_name`, sin escrituras.
+
 **Reglas de validación server-side:**
 - Falta `owner_dri` → 400.
-- Falta `acciones_array` (o vacío) → 400 con recordatorio "1 tarea = 1 CR = 1 Notion = 1 hilo".
+- Falta `acciones_array` (o vacío) → 400 con recordatorio "1 tarea = 1 CR = 1 Notion = 1 hilo" — **salvo `tipo='iniciativa'`**, que NO lo exige (lo ignora/colapsa).
+- `tipo='iniciativa'` sin `exp_id` → 400 · `exp_id` inexistente → 404.
 - `tipo='cross-equipos'` sin `cr_pair` → 400.
 - `thread_id` sin `mensaje` → 400 · `thread_id` no-snowflake → 400.
 - `tipo` default si se omite: `'weekly-cr'` si `es_weekly=true`, sino `'issue'`. **El skill debe pasar `tipo` explícito** (p.ej. `'iniciativa'` cuando hay `exp_id`) para obtener el naming correcto.
@@ -290,7 +342,7 @@ Body de la página (bloques que arma el server): callout `👤 Responsable · De
 
 ## Cuándo se activa
 
-- **Sub-llamada desde `exp-iniciativa` paso 5** — con `acciones[]` array. Crea **N CRs** (1 por acción).
+- **Sub-llamada desde `exp-iniciativa` paso 5** — con `tipo:'iniciativa'` + `exp_id` (sin `acciones_array`). Crea **2 CRs canónicos** + 1 hilo único (ver "Modo INICIATIVA").
 - **Sub-llamada desde `mv-instruction-generator` Fase 0.B** — BET dev con PRD generado.
 - **Standalone** — Carlos pega transcript de weekly + owner + acciones.
 - Trigger phrases: "crear CR para X", "/crear-cr", "crear iniciativa discord".
@@ -312,7 +364,9 @@ Body de la página (bloques que arma el server): callout `👤 Responsable · De
 | `#issues-líderes` / `#issues-general` | **1 thread por ISSUE** | El n8n cron lo crea automáticamente desde Notion DB Issues. |
 | `#crs-*` cross-equipos | **1 thread por CR** | Cada CR es coordinación entre 2 áreas específicas. |
 
-**Implicación para el flujo `exp-iniciativa → crear-cr`:**
+> ⚠️ Esta tabla de granularidad aplica a weekly/issues/cross-equipos. **`tipo='iniciativa'` tiene su propia regla** (2 CRs canónicos + 1 hilo + 1 mensaje, sin split de acciones) — ver "Modo INICIATIVA".
+
+**Implicación para el flujo `exp-iniciativa → crear-cr` (flujo legacy con split — hoy `exp-iniciativa` llama con `tipo='iniciativa'` y SIN acciones):**
 
 ```
 exp-iniciativa recibe acciones: "1. X\n2. Y\n3. Z\n4. W\n5. V"
@@ -499,6 +553,8 @@ Del response del endpoint, reportar al usuario por cada CR: `cr_id`, canal, `thr
 | `area` ∈ software (Producto/Tech/Growth-*) | `#iniciativas-tech`, hilo consolidado por owner si >1 acción |
 | `cr_pair` válido (sin es_weekly ni area software) | Canal `#crs-*` correspondiente |
 | `tipo='cross-equipos'` sin `cr_pair` | 400 del endpoint: "cr_pair requerido" |
+| `tipo='iniciativa'` sin `exp_id` | 400 del endpoint: los 2 CRs canónicos se derivan del experiment |
+| `tipo='iniciativa'` con `acciones_array` | El server las COLAPSA en 2 CRs canónicos + aviso en `next_steps` (el detalle va al PRD) |
 | Issue no-tech, owner ∈ LEADERS o `estrategico=true` | `#issues-líderes` |
 | Issue no-tech, owner de equipo | `#issues-general` |
 | Owner sin `owner_discord_id` y no en LEADERS | El server publica sin ping + `warning` en el item — propagar al usuario |
@@ -602,7 +658,7 @@ curl -sS -X POST "https://data-lake-mv.manzanaverde.la/api/crear-cr" \
 |---|-----------|----------|
 | T1 | `tipo='BET'` + area=Producto | `#iniciativas-tech`, tag responsable, Tasks DB, `consolidated` si >1 acción |
 | T2 | `es_weekly=true` + 4 acciones | `#weekly-exec-okrs`, 4 CRs + 4 threads `Tarea N - Weekly Sem X` |
-| T3 | `tipo='iniciativa'` + exp_id, area no-software, owner líder | `#issues-líderes` (v1.8.0: exp_id NO fuerza weekly) |
+| T3 | `tipo='iniciativa'` + exp_id, area no-software, owner líder | `#issues-líderes` (v1.8.0: exp_id NO fuerza weekly) + modo iniciativa: 2 CRs + 1 hilo |
 | T4 | `cr_pair=atc-ops-daily`, sin es_weekly ni area software | `#crs-atc-ops-daily` |
 | T5 | `es_weekly=true` + `cr_pair` presente | `#weekly-exec-okrs` gana (prioridad 1) |
 | T6 | area=Tech + `cr_pair` presente | `#iniciativas-tech` gana (prioridad 2) |
@@ -668,6 +724,7 @@ crear-cr standalone                 → task libre (relation vacía)
 
 ## Changelog
 
+- **v1.11.0 (2026-08-11): Modo INICIATIVA (DOCS-BRAIN Fase 3).** `tipo='iniciativa'` desvía a `handleIniciativa` server-side: exactamente **2 CRs canónicos** ("Ejecución" deadline=fecha_launch · "Medición y conclusiones" deadline=fecha_evaluacion) derivados del experiment — `acciones_array` ya no se exige (se ignora/colapsa si viene) — y **1 hilo con 1 solo mensaje** (`buildIniciativaBody`: apuesta escrita, links a PRD/Issue/2 CRs, KPI y fechas verbatim) vía flujo two-pass. `experiments.link_cr` pasa a apuntar al **hilo** (antes: al primer CR). Regla 1-tarea-1-CR gana esta segunda excepción (la primera sigue siendo `#iniciativas-tech`). `exp_id` ahora requerido (400 sin él) cuando `tipo='iniciativa'`.
 - **v1.9.0 (2026-08-07): publicación migrada a server-side (Fase 3 seguridad Brain) — sin tokens de servicio en cliente.** El skill conserva la lógica de decisión (routing v1.8.0, granularidad 1-tarea-1-CR, naming, gate PRD) y publica con UNA llamada a `POST /api/crear-cr` (`x-api-key: $MV_BRAIN_TOKEN`). Eliminados: escritura directa a Discord/Notion, stub Python de publicación, webhooks fallback y ejemplos de tokens. Documentado el contrato real del endpoint (acciones_array obligatorio, `issue_page_id`, `kpi_numbers` numéricos, `deadline`, `dry_run`, `exp_id` con auto-link de `experiments.link_cr` server-side, respuesta con `sync_status` por destino) y las diferencias vs el contrato viejo. Routing/testing/edge-cases actualizados a la semántica v1.8.0 del server (exp_id ya no fuerza weekly).
 - **v1.8.2 (2026-07-22)** — Restaura **Paso 5.5 — Gate de PRD (Fase 3)** que el PR de v1.8.1 había borrado por accidente (mi rama no lo tenía; el gate venía de PR#14 del equipo). Mantiene los fixes de IDs/formatos MCP de v1.8.1. cloud/skills ahora incluye el gate como canónico.
 - **v1.8.1 (2026-07-22)** — Fix IDs database vs data_source + formatos MCP. Cada DB tiene 2 ids: `database_id` (raw REST API) y `data_source_id` (Notion MCP). Tasks: db `95684528` / ds `f63d7df1`. Issue Inventory: db `202fb2dd` / ds `9b170e57`. Corregido el bug del Paso 4 (MCP usaba el database_id como data_source_id → 404). Corrige la nota "phantom" errónea de v1.7.1.

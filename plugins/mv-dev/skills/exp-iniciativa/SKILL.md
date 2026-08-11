@@ -13,7 +13,7 @@ trigger_phrases:
   - "nuevo experimento"
   - "registrar BET"
   - "crear apuesta"
-version: 1.5.0
+version: 1.6.0
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/03-skill-exp-iniciativa.md
@@ -21,11 +21,13 @@ based_on:
   - mv-instruction-generator v1.8.0 (Fase 0 + Sprint additions)
 ---
 
-# Skill `exp-iniciativa` v1.5.0
+# Skill `exp-iniciativa` v1.6.0
 
 > Skill genérico cross-area del Sprint Company Brain. Reemplaza el flujo "crear issue manual en Notion" con un flujo que **estructura + mide + persiste** en `experiments`. Vincula con `crear-cr` (Discord/tasks) e `informe-resultados` (cierre línea de datos).
 >
 > **Fase 3 seguridad Brain:** la persistencia es 100% server-side vía `POST /api/exp-iniciativa` con header `x-api-key: $MV_BRAIN_TOKEN`. Si `MV_BRAIN_TOKEN` no está definida, DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback. El skill nunca escribe directo al datalake ni maneja tokens de servicio.
+>
+> **🆕 2026-08-11 (DOCS-BRAIN):** el experimento nace con puntero a su PRD (`doc_repo`/`doc_path`), el Issue de Notion ya **no queda vacío** (nace con cuerpo estructurado), el diseño estadístico distingue métricas de proporción (`%`/baseline 0) de continuas, y existe `DELETE .../:id?cascade=true&confirm=<id>` para deshacer una iniciativa completa. Ver secciones abajo.
 
 ## Cuándo se activa
 
@@ -138,7 +140,7 @@ def calcular_muestra(baseline_mean, baseline_std, mde_pct, alpha=0.05, power=0.8
     return math.ceil(n)
 ```
 
-Output `diseno_estadistico` (jsonb):
+Output `diseno_estadistico` (jsonb) — métrica **continua** con baseline conocido:
 ```json
 {
   "duracion_dias": 14,
@@ -153,6 +155,24 @@ Output `diseno_estadistico` (jsonb):
 
 Si baseline_std no disponible → estimar como `0.3 * baseline_mean` + warning.
 
+**🆕 Modo proporción (DOCS-BRAIN Fix 3, 2026-08-11):** cuando el KPI tiene unidad `%` o el baseline es `0` (típico: CVR, % reclamos, % conectividad, o cualquier métrica que hoy no existe en el punto físico), el server **no** usa `two_sample_continuous`/`50_50_AB` — esa combinación daba `muestra_min: null` porque no hay nada que aleatorizar 50/50 contra cero. En su lugar calcula:
+
+```json
+{
+  "duracion_dias": 14,
+  "mde_pct": 5,
+  "muestra_min": 385,
+  "power": 0.8,
+  "alpha": 0.05,
+  "method": "one_sample_proportion",
+  "split_strategy": "pre_post_single_site",
+  "p_asumida": 0.5,
+  "nota": "n para estimar la proporción con ±5pp al 95% (p=0.5 conservador). Pre/post en un solo sitio."
+}
+```
+
+`muestra_min = ceil(1.96² · p·(1−p) / e²)` con `p=0.5` (conservador, varianza máxima) y `e = mde_pct/100`. Ej: `mde_pct=5` → `e=0.05` → `n=385`. Es automático — no hace falta pedirlo; el override `diseno_estadistico` explícito sigue teniendo prioridad sobre ambos modos.
+
 ### Paso 4 — Construir "La Apuesta" (artefacto SP3)
 
 ```
@@ -165,22 +185,20 @@ Tipo: ▸ BET customer-facing  ▸ BET interno  ▸ BUG (n/a)
 
 Guarda en col `apuesta` (text).
 
-### Paso 5 — Co-llama a `crear-cr` (si aplica)
+### Paso 5 — Co-llama a `crear-cr` (modo iniciativa, DOCS-BRAIN Fase 3)
 
-Si hay tareas clave en `acciones`, invocar `crear-cr` (que publica vía `POST /api/crear-cr`). **Pasar SIEMPRE `exp_id`**: el server auto-vincula `experiments.link_cr` con el permalink del thread/Notion (solo si `link_cr` estaba vacío — Fase 4.2). Ya no hace falta PATCHear `link_cr` desde el cliente; solo verificar que quedó seteado.
+Invocar `crear-cr` con `tipo:'iniciativa'` + `exp_id`. El server **no** crea un CR por acción: deriva exactamente **2 CRs canónicos** del experiment ("Ejecución" deadline=`fecha_launch`, "Medición y conclusiones" deadline=`fecha_evaluacion`) y abre **1 hilo con 1 solo mensaje** (apuesta escrita, link al PRD espejado en Notion, link al Issue, los 2 CRs). El detalle de tareas queda en el PRD — **no** se manda `acciones_array` (si se manda, el server lo colapsa igual con aviso).
 
 ```javascript
 const cr_result = await invokeSkill('crear-cr', {
-  acciones: experiment.acciones,            // string numerado — crear-cr lo splitea a acciones_array
-  area: experiment.area,
   tipo: 'iniciativa',
+  exp_id: experiment.id,                    // ✅ REQUERIDO — 400 sin él; los 2 CRs se derivan de acá
   owner_dri: experiment.owner_dri,
-  exp_id: experiment.id,                    // → auto-link server-side de experiments.link_cr
-  issue_page_id: experiment.notion_id,      // relation al Issue paraguas
-  kpi_numbers: [experiment.kpi_definition_id],
-  deadline: experiment.fecha_evaluacion,
+  area: experiment.area,
+  // NO pasar acciones_array: el detalle de tareas vive en el PRD, no en los CRs
 });
-// experiment.link_cr lo llena el server (verificar en la respuesta / GET /api/experiments/:id)
+// experiments.link_cr queda apuntando al PERMALINK DEL HILO (no al primer CR) — lo llena el server
+// (verificar en la respuesta cr_result.link_cr / GET /api/experiments/:id)
 ```
 
 ### Paso 6 — Veredicto soft-gate
@@ -228,9 +246,11 @@ El INSERT en `experiments` + la creación del Issue Notion los hace el **server*
 ### 🔗 Enlaces
 - [Notion borrador]({notion_url})
 - [CR Discord]({link_cr})
+- PRD: {doc_repo}/{doc_path} (espejo Notion en cuanto exista el archivo)
 - Snapshot brain: `notion-cache/_datalake/_data/experiments.md` (próximo sync)
 
 ### 📅 Próximo paso
+- Si `doc_path` quedó reservado sin escribir → correr `/mv-dev:crear-prd` para el PRD
 - Ejecutar acciones (owner: {owner_dri})
 - **{fecha_evaluacion}** → correr `/informe-resultados exp-2026-{NNN}` para cierre
 ```
@@ -281,13 +301,55 @@ const resp = await fetch('https://data-lake-mv.manzanaverde.la/api/exp-iniciativ
     skip_issue: false,                // true → no crea el Issue Notion
     notion_issue_id: null,            // vincular Issue existente (Caso B)
     source_notion_url: null,          // ingesta: página Notion cruda → enriquece el brief
+    // ── Puntero al PRD (DOCS-BRAIN Fase 5, 2026-08-11)
+    doc_repo: null,                   // repo donde vive el PRD. Si se omite Y area es tech
+                                      // (Producto/Tech/Growth-Producto/Growth-Tech) → default
+                                      // BOSQUEJO: 'manzana-verde-os'
+    doc_path: null,                   // path del PRD dentro de doc_repo. Default bosquejo:
+                                      // 'producto/ingenieria/<slug-del-nombre>/PRD.md'
+                                      // El endpoint NO ESCRIBE el PRD — solo reserva el puntero.
+                                      // Correr /mv-dev:crear-prd para generarlo (idempotente por cr_id).
   }),
 });
-// El server: hard-gates KPI/baseline → INSERT experiments (id exp-YYYY-NNN)
-// → crea/vincula Issue en Issue Inventory (202fb2dd) → responde {id, kpi, baseline, issue, ingested_source, next_steps}
+// El server: hard-gates KPI/baseline → INSERT experiments (id exp-YYYY-NNN, con doc_repo/doc_path
+// y el default bosquejo si aplica) → crea Issue CON CUERPO en Issue Inventory (202fb2dd) →
+// responde {id, kpi, baseline, issue, doc_repo, doc_path, ingested_source, next_steps}
 ```
 
 > ⚠️ **Experimento retroactivo (ya ejecutado):** pasa SIEMPRE `nombre`, `apuesta`, `fecha_launch`, `fecha_evaluacion` y `diseno_estadistico` explícitos — si no, el server los deriva mal (apuesta cortada, fechas de hoy, sigma estimada). Regla descubierta cerrando exp-2026-020/021 (2026-08-10).
+
+### 🆕 El Issue de Notion nace CON cuerpo (DOCS-BRAIN Fase 6, 2026-08-11)
+
+Antes el Issue se creaba con properties correctas pero **0 bloques de contenido** — quien lo abría no veía nada. Ahora `POST /api/exp-iniciativa` escribe el cuerpo al crear, con esta estructura fija (validada a mano en `exp-2026-022`):
+
+```
+callout    → experiments/{exp_id} · Owner · KPI · Piloto {launch}→{eval} · Estado
+🎯 La Apuesta            → apuesta (sanitizada: sin headers/bold markdown crudo)
+⚡ Supuesto más riesgoso  → si viene supuesto_riesgoso
+🧭 Alcance               → acciones iniciales o placeholder "detalle en el PRD"
+📊 Métricas              → KPI verbatim · baseline · target
+🚦 Gate {fecha_evaluacion} → criterio de continuidad
+📋 CRs                   → placeholder — se puebla al correr crear-cr con exp_id
+⚠️ Riesgos abiertos
+🔗 Links                 → PRD (doc_repo/doc_path), datalake, hilo Discord
+```
+
+El skill no necesita construir este cuerpo — es 100% server-side. Solo asegurar que `apuesta`, `supuesto_riesgoso`, `prueba_barata` lleguen bien poblados en el body para que el Issue salga completo.
+
+**Baseline honesto (mismo fix):** la métrica North Star ya no se adivina mezclando el `brief` — solo el **nombre del KPI**. Antes, un brief con "pedidos"/"orders" hacía que un KPI de Registros (#172) devolviera el valor de otra métrica (comidas entregadas, 4130). Ahora sin match → **400 pidiendo `baseline_valor` manual** — mejor bloquear que persistir un número equivocado.
+
+### 🆕 Deshacer una iniciativa — `DELETE` con cascade (DOCS-BRAIN Fix 1, 2026-08-11)
+
+```bash
+DELETE /api/experiments/{id}?cascade=true&confirm={id}
+Headers: x-api-key: $MV_BRAIN_TOKEN
+```
+
+- `confirm` debe ser **exactamente** el `id` — sin eso, 400 (borrar no puede ser un accidente).
+- `estado='Medido'` → 400 salvo `&force=true` ("un experimento medido es evidencia, no borrador").
+- Con `cascade=true`: borra la fila de `experiments`, sus filas de `crs` (por `exp_id`), archiva las páginas de Notion (Issue + Tasks) y borra el/los hilo(s) de Discord. Responde `{ok, deleted: {experiments, crs, notion, discord}}` por destino (207 si algo falló — reintentable).
+- Sin `cascade`: borra solo `experiments` y devuelve la lista de lo que quedaría huérfano, para decidir a mano.
+- ⚠️ El `id` **no se recicla**: recrear una iniciativa borrada le asigna el siguiente `exp-YYYY-NNN` disponible, no el mismo.
 
 ---
 
@@ -317,6 +379,8 @@ const resp = await fetch('https://data-lake-mv.manzanaverde.la/api/exp-iniciativ
 | `notion_id` | text | opcional | URL Notion borrador |
 | `hermes_proposal_id` | varchar | opcional | Si vincula a Hermes |
 | `link_pr` | text | rellena después | Cuando exista PR |
+| `doc_repo` | text | recomendado (tech) | Paso 5 — default bosquejo `manzana-verde-os` |
+| `doc_path` | text | recomendado (tech) | Paso 5 — default `producto/ingenieria/<slug>/PRD.md` |
 
 Schema completo: `producto/estrategia/iniciativa-ai-native-dev/02-experiments-schema.md`.
 
@@ -503,6 +567,8 @@ Marco: Company Brain v2 (4 capas). Ver Notion "🏛️ Arquitectura v2 — 4 cap
 
 ## Changelog
 
+- **v1.6.0 (2026-08-11): ciclo documental completo (DOCS-BRAIN Fases 5-6 + Fixes 1 y 3).** El experimento nace con puntero al PRD (`doc_repo`/`doc_path`; default bosquejo `manzana-verde-os/producto/ingenieria/<slug>/PRD.md` para áreas tech sin puntero explícito — el endpoint solo reserva, `/mv-dev:crear-prd` escribe). El Issue de Notion nace **con cuerpo** (callout + Apuesta + Supuesto + Alcance + Métricas + Gate + CRs + Links) en vez de vacío. Diseño estadístico distingue proporción (`%`/baseline 0 → `one_sample_proportion` pre/post, n=z²p(1−p)/e²) de continua (`two_sample_continuous`/`50_50_AB`) — antes toda métrica sin varianza conocida caía en `muestra_min: null`. Baseline honesto: la métrica North Star se adivina solo del nombre del KPI (ya no del brief) — sin match → 400 en vez de devolver el valor de otra métrica. Paso 5 actualizado al modo iniciativa de `crear-cr` (2 CRs canónicos + 1 hilo, sin `acciones_array`). Nuevo: `DELETE /api/experiments/:id?cascade=true&confirm=<id>` para deshacer una iniciativa completa (gates: confirm exacto, `force` si Medido).
+- **v1.5.0 (2026-08-10)** — Overrides explícitos `apuesta` y `diseno_estadistico` (si vienen, el server no los reconstruye con `buildApuesta`/`calcDesign`) + contrato del body completado en la doc (antes solo se documentaban ~12 de los ~25 params reales, causa raíz de experimentos mal escritos: quien usaba el skill metía fechas/nombre dentro del `brief`). Nota de retroactivos: pasar `nombre`/`apuesta`/`fecha_launch`/`fecha_evaluacion`/`diseno_estadistico` explícitos.
 - **v1.4.0 (2026-08-07): publicación migrada a server-side (Fase 3 seguridad Brain) — sin tokens de servicio en cliente.** Eliminada la rama de escritura directa al datalake (REST con token de servicio) y el fallback de completar el Issue con token de sesión. Único camino: `POST /api/exp-iniciativa` (`brief`+`owner_dri` requeridos, `paises` array, `kpi_definition_id` salta hard-gate, `skip_issue`, `notion_issue_id`, `source_notion_url`) con `x-api-key: $MV_BRAIN_TOKEN`. Lookup KPI vía `GET /api/dris/lookup`. Paso 5: pasar `exp_id` a `crear-cr` → el server auto-vincula `experiments.link_cr` (Fase 4.2).
 - **v1.3.0 (2026-07-21)** — Carlos v2: Paso 0 RAG por KPI (consulta kpi-context al arrancar) + ingesta cruda `source_notion_url` (lee página Notion manual → enriquece brief). Respuesta agrega `ingested_source`.
 - **v1.2.1 (2026-07-18)** — Token "Token Brain" válido (RW workspace Manzana Verde) reemplaza workaround MCP OAuth. Issue DB = "Issue Inventory" `202fb2dd`. Endpoint crea Issue server-side (requiere NOTION_TOKEN en Vercel).
