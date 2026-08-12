@@ -1,7 +1,7 @@
 {
   "name": "mv-dev",
   "description": "Plugin de desarrollo de Manzana Verde con hooks de calidad, agentes especializados, skills de conocimiento y MCP servers para queries a base de datos, analisis de componentes y documentacion en Notion",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "author": {
     "name": "Manzana Verde",
     "email": "tech@manzanaverde.com"

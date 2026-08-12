@@ -132,25 +132,53 @@ La integracion solo puede acceder a las paginas que le compartas explicitamente.
 
 ## 3. MV Brain (Data Lake / Company Brain)
 
-`MV_BRAIN_TOKEN` es tu token **personal** para los skills que consultan el Company Brain (`kpi-context`, `proponer-campana`, `ejecutar-campana`, `generar-lista-manychat`, `editar-experimento`).
+`MV_BRAIN_TOKEN` es tu token **personal** para los skills que consultan y escriben en el Company Brain: `crear-cr`, `exp-iniciativa`, `editar-experimento`, `informe-resultados`, `kpi-context`, `research-mv`, `proponer-campana`, `ejecutar-campana`, `generar-lista-manychat`.
+
+Es distinto a los demas tokens de esta guia: no conecta un MCP server, es el header `x-api-key` que autentica cada llamada de estos skills contra el endpoint `data-lake-mv.manzanaverde.la`. Sin el configurado, cualquiera de esos skills se detiene con error 401 en su primer paso — no hay fallback.
+
+### Como funciona (por que no necesitas Notion/Discord/Supabase para esto)
+
+Antes cada persona tenia credenciales de Notion, Discord y Supabase en su laptop para que los skills publicaran directo. Ahora el servidor hace ese trabajo por ti — tu laptop solo necesita `MV_BRAIN_TOKEN`:
+
+```
+Tu laptop (skill)                     Servidor del Brain (data-lake-mv)
+┌───────────────────┐   1 llamada    ┌──────────────────────────┐
+│ MV_BRAIN_TOKEN    │ ─────────────► │ verifica quien eres       │
+│ (lo unico tuyo)    │                │ y publica por ti en:      │
+└───────────────────┘                │   → Notion (tasks/issues) │
+                                     │   → Discord (threads)     │
+                                     │   → Datalake (registros)  │
+                                     └──────────────────────────┘
+```
+
+En la practica: usas `/crear-cr`, `/exp-iniciativa`, `/informe-resultados` o `/editar-experimento` como cualquier otro skill, y el servidor crea la task en Notion, publica el thread en Discord con la mencion al responsable y registra todo en el datalake — con tu nombre (el token te identifica, asi se llena solo el owner).
+
+> El `NOTION_TOKEN` de la seccion 2 es para otra cosa (documentacion general de proyectos via `start-project`) — no sustituye a `MV_BRAIN_TOKEN` ni viceversa.
 
 ### Paso a paso
 
-1. Solicitar tu token personal a **BizOps (Julio)** por canal privado (Slack DM o correo). No se comparte por Discord ni se publica en ningun repo.
-2. El token se entrega **una sola vez** — guardalo en tu gestor de contrasenas.
+1. Solicitar tu token personal a **BizOps (Julio)** por canal privado (Slack DM o correo), indicando tu perfil (lectura / dri / dri-growth / finanzas / tech / exec). No se comparte por Discord ni se publica en ningun repo.
+2. El token se entrega **una sola vez** (formato `mvb_...`) — guardalo en tu gestor de contrasenas.
 3. Agregar a tu shell profile:
 
 **Mac / Linux:**
 ```bash
-export MV_BRAIN_TOKEN="tu-token-personal"
+export MV_BRAIN_TOKEN="mvb_tu-token-aqui"
 ```
 
 **Windows (PowerShell):**
 ```powershell
-$env:MV_BRAIN_TOKEN = "tu-token-personal"
+$env:MV_BRAIN_TOKEN = "mvb_tu-token-aqui"
 ```
 
 4. Recargar el terminal y verificar con `echo $MV_BRAIN_TOKEN` (Mac/Linux) o `echo $env:MV_BRAIN_TOKEN` (Windows).
+5. Si acabas de instalar el plugin o vienes de una version anterior a v1.9.0, corre `/plugin update mv-dev` — versiones viejas del skill usan un contrato distinto y fallan aunque el token este bien configurado.
+
+### Preguntas frecuentes
+
+- **"El skill me dice 403"** — tu perfil no incluye ese dato (ej. KPIs financieros o de RR.HH. requieren scope adicional). Pide a Julio que ajuste tu perfil si lo necesitas para tu trabajo.
+- **"Me dice token expirado"** — los tokens duran 180 dias. Pide renovacion a BizOps.
+- **"Ya configure el token y sigue fallando"** — revisa el paso 5 (version del plugin); si el token es correcto y el plugin esta actualizado, avisa a BizOps.
 
 ### Nota sobre seguridad
 
