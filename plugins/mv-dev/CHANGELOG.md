@@ -8,7 +8,7 @@ Todos los cambios notables del plugin mv-dev se documentan aqui.
 - **Guia `MV_BRAIN_TOKEN` visible al instalar el plugin**: `check-mcp-tokens.sh` ahora detecta si falta `MV_BRAIN_TOKEN` y avisa al primer `SessionStart` (antes solo se descubria con un 401 al usar un skill de Brain). `SETUP.md` seccion "3. MV Brain" reescrita con diagrama de arquitectura (por que ya no hace falta Notion/Discord/Supabase para estos skills), lista real de skills que lo requieren (antes faltaban `crear-cr`, `exp-iniciativa`, `informe-resultados`, `research-mv`) y preguntas frecuentes.
 
 ### Changed
-- **crear-cr v1.13.0**: cuando el routing cae en el default ambiguo (`#issues-líderes`/`#issues-general` sin `es_weekly`/area software/`cr_pair`), el skill pregunta al usuario a que canal enviar el CR segun la posicion del owner, en vez de publicar directo — motivado por un CR real que llego a `#issues-líderes` sin contexto claro. Agregado Leopoldo Anastacio (Chef Ejecutivo) al mapping `LEADERS`.
+- **crear-cr v1.13.0**: cuando el routing cae en el default ambiguo (`#issues-líderes`/`#issues-general` sin `es_weekly`/area software/`cr_pair`), el skill pregunta al usuario a que canal enviar el CR segun la posicion del owner, en vez de publicar directo — motivado por un CR real que llego a `#issues-líderes` sin contexto claro. Agregado Leopoldo Anastacio (Chef Ejecutivo) y Juan de Dios (contenidos@) al mapping `LEADERS`.
 
 ## [1.11.0] — 2026-08-11
 
