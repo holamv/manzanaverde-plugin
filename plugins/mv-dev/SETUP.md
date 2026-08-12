@@ -141,14 +141,13 @@ Es distinto a los demas tokens de esta guia: no conecta un MCP server, es el hea
 Antes cada persona tenia credenciales de Notion, Discord y Supabase en su laptop para que los skills publicaran directo. Ahora el servidor hace ese trabajo por ti — tu laptop solo necesita `MV_BRAIN_TOKEN`:
 
 ```
-Tu laptop (skill)                     Servidor del Brain (data-lake-mv)
-┌───────────────────┐   1 llamada    ┌──────────────────────────┐
-│ MV_BRAIN_TOKEN    │ ─────────────► │ verifica quien eres       │
-│ (lo unico tuyo)    │                │ y publica por ti en:      │
-└───────────────────┘                │   → Notion (tasks/issues) │
-                                     │   → Discord (threads)     │
-                                     │   → Datalake (registros)  │
-                                     └──────────────────────────┘
+Tu laptop (skill)                Servidor del Brain (data-lake-mv)
+
+  MV_BRAIN_TOKEN   -- 1 llamada -->  verifica quien eres
+  (lo unico tuyo)                    y publica por ti en:
+                                        - Notion (tasks/issues)
+                                        - Discord (threads)
+                                        - Datalake (registros)
 ```
 
 En la practica: usas `/crear-cr`, `/exp-iniciativa`, `/informe-resultados` o `/editar-experimento` como cualquier otro skill, y el servidor crea la task en Notion, publica el thread en Discord con la mencion al responsable y registra todo en el datalake — con tu nombre (el token te identifica, asi se llena solo el owner).

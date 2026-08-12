@@ -235,6 +235,24 @@ Para usar Notion necesitas configurar el token:
 Guia completa: ver SETUP.md del plugin (seccion 2)
 ```
 
+### MV Brain (`MV_BRAIN_TOKEN`)
+Se necesita para: los skills del Company Brain (`/mv-dev:crear-cr`, `/mv-dev:exp-iniciativa`, `/mv-dev:kpi-context`, `/mv-dev:editar-experimento`, `/mv-dev:informe-resultados`, `/mv-dev:research-mv`, campanas). Sin este token, esos skills se detienen con 401 en el primer paso — no hay fallback.
+```
+Para usar los skills del Company Brain necesitas tu token personal:
+
+1. Solicitarlo a BizOps (Julio) por canal privado (Slack DM o correo) —
+   no se comparte por Discord ni se publica en ningun repo.
+2. El token se entrega una sola vez (formato: mvb_...) — guardalo en tu
+   gestor de contrasenas.
+3. Agregar la variable de entorno:
+   Mac/Linux  → ~/.zshrc:    export MV_BRAIN_TOKEN="mvb_tu-token"
+   Windows PS → $PROFILE:    $env:MV_BRAIN_TOKEN = "mvb_tu-token"
+4. Recargar terminal (source ~/.zshrc | reiniciar PowerShell)
+5. Reiniciar Claude Code
+
+Guia completa: ver SETUP.md del plugin (seccion 3)
+```
+
 ### Supabase (`SUPABASE_ACCESS_TOKEN`)
 Se necesita para: consultar bases de datos Supabase.
 ```
@@ -249,7 +267,7 @@ Para usar Supabase necesitas configurar el token:
 5. Recargar terminal (source ~/.zshrc | reiniciar PowerShell)
 6. Reiniciar Claude Code
 
-Guia completa: ver SETUP.md del plugin (seccion 3)
+Guia completa: ver SETUP.md del plugin (seccion 4)
 ```
 
 ### Base de datos (`DB_ACCESS_*`)
