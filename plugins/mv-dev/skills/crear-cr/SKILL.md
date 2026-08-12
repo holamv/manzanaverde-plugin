@@ -13,7 +13,7 @@ trigger_phrases:
   - "crear iniciativa discord"
   - "nuevo change request"
   - "abrir CR para"
-version: 1.12.0
+version: 1.13.0
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/04-skill-crear-cr.md
@@ -22,11 +22,12 @@ based_on:
   - memoria proyecto Discord: reference_discord_mv, project_mv_cr_workflow, feedback_discord_workflow, feedback_cr_tag_responsable, reference_notion_mv_databases
 ---
 
-# Skill `crear-cr` v1.12.0
+# Skill `crear-cr` v1.13.0
 
 > Sprint Company Brain — cable iniciativa/issue → datalake + Discord + Notion.
 >
 > **Reglas clave:**
+> 0. **🔥 Canal ambiguo → PREGUNTAR, no asumir.** Si el routing cae en el default de prioridad 4 (`#issues-líderes`/`#issues-general`) sin ninguna señal fuerte (`es_weekly`, area software, `cr_pair`), el destino no es "obvio" — pregunta al usuario a qué canal quiere que llegue el CR **antes** de publicar. Ver "Routing v1.8.0 → Confirmación obligatoria en default ambiguo".
 > 1. **🔥 REGLA CRÍTICA — 1 tarea = 1 CR = 1 Notion task = 1 Discord thread.** Aplica a weekly (`es_weekly`) y cross-equipos (`cr_pair`): si hay N acciones, hay que crear N CRs separados (no 1 thread con todas las acciones dentro). Cada CR es atómico: tiene su propia Notion page, su propio responsable, su propio deadline, su propio DoD. Excepciones: (a) `#iniciativas-tech` consolida 1 hilo por OWNER (lo aplica el server automáticamente); (b) **`tipo='iniciativa'` = exactamente 2 CRs canónicos** derivados del experiment ("Ejecución" + "Medición y conclusiones") — el detalle de tareas vive en el PRD, los CRs son puntos de control (ver "Modo INICIATIVA").
 > 2. **Reunión semanal** — tarea que sale de una Weekly Exec (`es_weekly=true`) → `#weekly-exec-okrs`. Se crean con `crear-cr` directo cuando hay contexto de la reunión.
 > 3. **Issue/iniciativa tech** (software · Producto/Tech/Growth-Tech) → `#iniciativas-tech`.
@@ -246,6 +247,25 @@ El server ejecuta este routing (es la autoridad). El skill lo replica **solo par
 
 > ⚠️ Weekly YA NO es el default de toda iniciativa/issue. `#weekly-exec-okrs` es **solo** para tareas que salen de una reunión semanal. Las iniciativas/issues se enrutan por su naturaleza: **tech → iniciativas-tech**, **no-tech → issues-líderes/general**.
 
+### ⚠️ Confirmación obligatoria en default ambiguo (v1.13.0)
+
+**Motivo:** un CR llegó a `#issues-líderes` sin contexto claro — el routing cayó en el default de prioridad 4 sin que hubiera una señal real (`es_weekly`, area software, `cr_pair`) que justificara el canal, y el skill lo publicó sin confirmar.
+
+Prioridades 1-3 (`es_weekly`, area software, `cr_pair`) son señales explícitas — cuando una de ellas aplica, el canal está justificado y NO hace falta preguntar. **Prioridad 4 (default no-tech) es ambigua por diseño**: `#issues-líderes` vs `#issues-general` se decide solo por si el owner está en `LEADERS` o trae `estrategico=true`, lo cual no siempre refleja dónde el usuario realmente quiere que llegue el CR.
+
+**Regla:** si el routing resuelto NO tiene ninguna señal de prioridad 1-3, el skill DEBE preguntar al usuario el canal antes de llamar al endpoint con `dry_run:false` (el `dry_run:true` de confirmación no sustituye la pregunta — sirve para mostrar el naming/body, no para que el usuario note el canal por sí mismo). Preguntar así:
+
+```
+Este CR no tiene una señal clara de canal (no es weekly, no es área tech, no es cr_pair).
+Por la posición de {owner_dri} lo enrutaría a {canal_sugerido} (líder → #issues-líderes / equipo → #issues-general).
+¿Confirmas ese canal, o prefieres otro? (#issues-líderes / #issues-general / #crs-<par> / #iniciativas-tech)
+```
+
+- **Owner ∈ LEADERS o `estrategico=true`** → sugerir `#issues-líderes`, pero confirmar igual (puede ser un issue de equipo que el líder solo está destrabando).
+- **Owner de equipo, sin señal** → sugerir `#issues-general`, confirmar igual (puede ser coordinación cross-equipo que falta declarar con `cr_pair`).
+- Si el usuario responde con un canal distinto al sugerido y corresponde a un `cr_pair`, agregar `cr_pair` al payload en vez de forzar el canal a mano (el server solo enruta por los campos del contrato, no por canal literal).
+- Excepción: si el caller (`exp-iniciativa`, `mv-instruction-generator`) ya trae el contexto completo de una conversación donde el canal fue discutido explícitamente, no hace falta re-preguntar — documentar esa decisión en el `contexto` de la acción.
+
 Réplica exacta de la lógica server-side (referencia de decisión, NO se ejecuta para publicar):
 
 ```javascript
@@ -309,6 +329,8 @@ const LEADERS = {
   'Carolina Andrade': { notion: '58e1729b-ef4c-4e5c-8057-3766d184b499', discord: '973237730219794502' },
   'Cristhian Mayo':   { notion: '14bd872b-594c-8114-9fca-0002c9281d03', discord: '1337531659431710750' },
   'Alejandra Rincones': { notion: 'cd83bab4-e8f9-40c0-93f3-22132f7db5f4', discord: '735662405014519839' },
+  'Leopoldo Anastacio': { notion: '1c3d8689-9b60-832c-a7fa-81922cb73453', discord: '1510044626059395203' },
+  'Juan de Dios': { notion: '391d872b-594c-810f-8e36-0002a6b86e3a', discord: '302252525237829632' },
 };
 ```
 
@@ -399,7 +421,9 @@ Recolectar del caller/usuario: `owner_dri` (obligatorio), acciones (array o stri
 
 ### Paso 2 — Routing canal (predicción, regla v1.8.0)
 
-Aplicar `routeChannel()` (réplica arriba) para anticipar el canal y confirmarlo con el usuario. La autoridad final es el server — `dry_run:true` devuelve `canal`/`canal_id` resueltos.
+Aplicar `routeChannel()` (réplica arriba) para anticipar el canal. La autoridad final es el server — `dry_run:true` devuelve `canal`/`canal_id` resueltos.
+
+**Si el resultado no tiene señal de prioridad 1-3** (no `es_weekly`, area no-software, sin `cr_pair`) → es el caso ambiguo de default (prioridad 4). PREGUNTAR el canal al usuario según la posición del owner antes de seguir (ver "Confirmación obligatoria en default ambiguo" arriba) — no basta con mostrarlo en el `dry_run` y asumir que el usuario lo revisó.
 
 ### Paso 2.5 — Parse acciones a array
 
@@ -562,6 +586,7 @@ Del response del endpoint, reportar al usuario por cada CR: `cr_id`, canal, `thr
 | Issue no-tech, owner ∈ LEADERS o `estrategico=true` | `#issues-líderes` |
 | Issue no-tech, owner de equipo | `#issues-general` |
 | Owner sin `owner_discord_id` y no en LEADERS | El server publica sin ping + `warning` en el item — propagar al usuario |
+| Routing cae en default (prioridad 4, sin `es_weekly`/area software/`cr_pair`) | AMBIGUO — preguntar al usuario a qué canal enviar el CR según la posición del owner, no asumir en silencio (v1.13.0) |
 | 401 del endpoint | `MV_BRAIN_TOKEN` inválida/ausente — DETENTE y pide al usuario solicitar su token a BizOps (Julio). Sin fallback |
 | INSERT datalake falla | El item viene con `datalake.ok=false` y NO se publica nada para esa acción |
 | Notion o Discord fallan (best-effort) | CR queda en `public.crs` con `sync_status` — reportar y reintentar server-side, NO duplicar |
@@ -728,6 +753,7 @@ crear-cr standalone                 → task libre (relation vacía)
 
 ## Changelog
 
+- **v1.13.0 (2026-08-12): canal ambiguo → preguntar, no asumir + Leopoldo Anastacio y Juan de Dios en LEADERS.** Cuando el routing cae en el default de prioridad 4 (`#issues-líderes`/`#issues-general`, sin `es_weekly`/area software/`cr_pair`), el skill debe preguntar al usuario a qué canal enviar el CR según la posición del owner, en vez de publicar directo — motivado por un CR real que llegó a `#issues-líderes` sin contexto claro. Agregado Leopoldo Anastacio (Chef Ejecutivo) y Juan de Dios (contenidos@) al mapping `LEADERS` — este último ya estaba mapeado en la memoria del proyecto pero faltaba en el skill.
 - **v1.12.0 (2026-08-12): el nombre del hilo lleva el código del CR.** Prefijo `[cr-YYYY-NNN]` (o `[cr-YYYY-NNN/NNN]` en modo iniciativa, 2 CRs → 1 hilo) antepuesto al naming de siempre — para citar/ubicar un hilo buscando el código en Discord, sin copiar el link. `nextCrId()` se genera antes del naming en vez de después (server); sin cambios en el contrato del skill, solo en el `thread_name` que devuelve la respuesta.
 - **v1.11.0 (2026-08-11): Modo INICIATIVA (DOCS-BRAIN Fase 3).** `tipo='iniciativa'` desvía a `handleIniciativa` server-side: exactamente **2 CRs canónicos** ("Ejecución" deadline=fecha_launch · "Medición y conclusiones" deadline=fecha_evaluacion) derivados del experiment — `acciones_array` ya no se exige (se ignora/colapsa si viene) — y **1 hilo con 1 solo mensaje** (`buildIniciativaBody`: apuesta escrita, links a PRD/Issue/2 CRs, KPI y fechas verbatim) vía flujo two-pass. `experiments.link_cr` pasa a apuntar al **hilo** (antes: al primer CR). Regla 1-tarea-1-CR gana esta segunda excepción (la primera sigue siendo `#iniciativas-tech`). `exp_id` ahora requerido (400 sin él) cuando `tipo='iniciativa'`.
 - **v1.9.0 (2026-08-07): publicación migrada a server-side (Fase 3 seguridad Brain) — sin tokens de servicio en cliente.** El skill conserva la lógica de decisión (routing v1.8.0, granularidad 1-tarea-1-CR, naming, gate PRD) y publica con UNA llamada a `POST /api/crear-cr` (`x-api-key: $MV_BRAIN_TOKEN`). Eliminados: escritura directa a Discord/Notion, stub Python de publicación, webhooks fallback y ejemplos de tokens. Documentado el contrato real del endpoint (acciones_array obligatorio, `issue_page_id`, `kpi_numbers` numéricos, `deadline`, `dry_run`, `exp_id` con auto-link de `experiments.link_cr` server-side, respuesta con `sync_status` por destino) y las diferencias vs el contrato viejo. Routing/testing/edge-cases actualizados a la semántica v1.8.0 del server (exp_id ya no fuerza weekly).

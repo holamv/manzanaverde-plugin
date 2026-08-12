@@ -6,6 +6,14 @@
 MISSING=()
 CONFIGURED=()
 
+# MV Brain - requerido para los skills del Company Brain (crear-cr, exp-iniciativa,
+# kpi-context, editar-experimento, informe-resultados, campanas)
+if [ -z "$MV_BRAIN_TOKEN" ]; then
+  MISSING+=("MV_BRAIN_TOKEN (Company Brain - crear-cr, exp-iniciativa, kpi-context, editar-experimento, informe-resultados, campanas)")
+else
+  CONFIGURED+=("Company Brain (MV_BRAIN_TOKEN)")
+fi
+
 # Notion - requerido para sync docs
 if [ -z "$NOTION_TOKEN" ]; then
   MISSING+=("NOTION_TOKEN (Notion - sync de docs, documentacion general)")
@@ -55,6 +63,8 @@ if [ ${#MISSING[@]} -gt 0 ]; then
   echo "IMPORTANTE: Si el usuario acaba de configurar alguno de estos tokens, necesita reiniciar Claude Code (cerrar y abrir) para que los MCP servers se conecten. No hay forma de recargar MCPs en caliente actualmente."
   echo ""
   echo "Para configurar tokens faltantes, guiar al usuario con las instrucciones del CLAUDE.md (seccion 'Tokens no configurados')."
+  echo ""
+  echo "MV_BRAIN_TOKEN es distinto a los demas: no es un MCP server, es el header de autenticacion del endpoint del Company Brain (x-api-key). Sin el, los skills de Brain (crear-cr, exp-iniciativa, etc.) se detienen con 401 al primer uso, sin aviso previo del propio skill. Guia completa (que es, como pedirlo, como configurarlo, para que sirve cada skill): SETUP.md seccion '3. MV Brain (Data Lake / Company Brain)' en la raiz del plugin mv-dev."
 fi
 
 exit 0
