@@ -13,7 +13,7 @@ trigger_phrases:
   - "crear iniciativa discord"
   - "nuevo change request"
   - "abrir CR para"
-version: 1.11.0
+version: 1.12.0
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/04-skill-crear-cr.md
@@ -22,7 +22,7 @@ based_on:
   - memoria proyecto Discord: reference_discord_mv, project_mv_cr_workflow, feedback_discord_workflow, feedback_cr_tag_responsable, reference_notion_mv_databases
 ---
 
-# Skill `crear-cr` v1.11.0
+# Skill `crear-cr` v1.12.0
 
 > Sprint Company Brain — cable iniciativa/issue → datalake + Discord + Notion.
 >
@@ -155,7 +155,7 @@ Después, PATCH de permalinks + `sync_status` en ambas filas de `crs` (ambas apu
   "mode": "iniciativa",
   "exp_id": "exp-2026-014",
   "canal": "#issues-líderes",
-  "thread_name": "Iniciativa - Julio Mori - 15/08/2026 - exp-2026-014",
+  "thread_name": "[cr-2026-033/034] Iniciativa - Julio Mori - 15/08/2026 - exp-2026-014",
   "thread_permalink": "https://discord.com/channels/619991595613290496/…",
   "discord": { "thread_ok": true, "message_ok": true },
   "created": [ /* 2 items: {cr_id, titulo, datalake, notion_url, notion_page_id, notion_ok} */ ],
@@ -190,7 +190,7 @@ Después, PATCH de permalinks + `sync_status` en ambas filas de `crs` (ambas apu
       "cr_id": "cr-2026-042",
       "titulo": "…",
       "canal": "#weekly-exec-okrs",
-      "thread_name": "CR - Julio Mori - 15/08/2026 - Tarea 1 …",
+      "thread_name": "[cr-2026-042] CR - Julio Mori - 15/08/2026 - Tarea 1 …",
       "datalake": { "ok": true },
       "notion":   { "ok": true, "url": "https://notion.so/…", "responsable_ok": true, "detail": null },
       "discord":  { "ok": true, "permalink": "https://discord.com/channels/619991595613290496/…", "detail": null },
@@ -357,6 +357,8 @@ Body de la página (bloques que arma el server): callout `👤 Responsable · De
 
 **4 acciones de Julio = 4 threads separados.** No 1 thread con todas dentro.
 
+> Nota: ejemplos históricos de la validación E2E — desde 2026-08-12 cada nombre lleva además el prefijo `[cr-YYYY-NNN]` (ver "Naming de threads" arriba).
+
 | Canal | Granularidad | Razón |
 |-------|--------------|-------|
 | `#weekly-exec-okrs` | **1 thread por TAREA** | Cada CR es ejecutable atómico: 1 responsable + 1 deadline + 1 DoD. Permite seguimiento independiente. |
@@ -459,14 +461,16 @@ Mismo payload con `dry_run: false`. El server ejecuta el fanout completo (datala
 
 #### Naming de threads (canónico — lo aplica el server)
 
+> 🆕 **2026-08-12: el nombre lleva el código del CR como prefijo** `[cr-YYYY-NNN]` — para citar/ubicar un hilo sin copiar el link de Discord (basta buscar el código). En modo iniciativa (2 CRs → 1 hilo) van ambos códigos, el segundo abreviado si comparte prefijo: `[cr-2026-033/034]`.
+
 | Contexto | Formato |
 |----------|---------|
-| Weekly (`es_weekly` / `tipo='weekly-cr'`) | `CR - {owner} - {DD/MM/YYYY} - Tarea {N}[ RAT] {tema} - Weekly Sem {weekly_sem}` |
-| `tipo='BET'` o `'iniciativa'` | `Iniciativa - {owner} - {DD/MM/YYYY}[ - {exp_id}]` |
-| `tipo='issue'` / `'issue-legacy'` | `Issue - {tema} - {DD/MM/YYYY}` |
-| Resto (default) | `CR - {owner} - {DD/MM/YYYY} - {tema}` |
+| Weekly (`es_weekly` / `tipo='weekly-cr'`) | `[cr-YYYY-NNN] CR - {owner} - {DD/MM/YYYY} - Tarea {N}[ RAT] {tema} - Weekly Sem {weekly_sem}` |
+| `tipo='BET'` o `'iniciativa'` | `[cr-YYYY-NNN/NNN] Iniciativa - {owner} - {DD/MM/YYYY}[ - {exp_id}]` |
+| `tipo='issue'` / `'issue-legacy'` | `[cr-YYYY-NNN] Issue - {tema} - {DD/MM/YYYY}` |
+| Resto (default) | `[cr-YYYY-NNN] CR - {owner} - {DD/MM/YYYY} - {tema}` |
 
-`{tema}` = `nombre_corto` truncado a 40 chars; nombre total truncado a 100. Fecha = deadline de la acción (o global) en DD/MM/YYYY.
+`{tema}` = `nombre_corto` truncado a 40 chars; nombre total (con prefijo) truncado a 100. Fecha = deadline de la acción (o global) en DD/MM/YYYY.
 
 #### Body del mensaje Discord (canónico — lo postea el server, ≤1990 chars)
 
@@ -724,6 +728,7 @@ crear-cr standalone                 → task libre (relation vacía)
 
 ## Changelog
 
+- **v1.12.0 (2026-08-12): el nombre del hilo lleva el código del CR.** Prefijo `[cr-YYYY-NNN]` (o `[cr-YYYY-NNN/NNN]` en modo iniciativa, 2 CRs → 1 hilo) antepuesto al naming de siempre — para citar/ubicar un hilo buscando el código en Discord, sin copiar el link. `nextCrId()` se genera antes del naming en vez de después (server); sin cambios en el contrato del skill, solo en el `thread_name` que devuelve la respuesta.
 - **v1.11.0 (2026-08-11): Modo INICIATIVA (DOCS-BRAIN Fase 3).** `tipo='iniciativa'` desvía a `handleIniciativa` server-side: exactamente **2 CRs canónicos** ("Ejecución" deadline=fecha_launch · "Medición y conclusiones" deadline=fecha_evaluacion) derivados del experiment — `acciones_array` ya no se exige (se ignora/colapsa si viene) — y **1 hilo con 1 solo mensaje** (`buildIniciativaBody`: apuesta escrita, links a PRD/Issue/2 CRs, KPI y fechas verbatim) vía flujo two-pass. `experiments.link_cr` pasa a apuntar al **hilo** (antes: al primer CR). Regla 1-tarea-1-CR gana esta segunda excepción (la primera sigue siendo `#iniciativas-tech`). `exp_id` ahora requerido (400 sin él) cuando `tipo='iniciativa'`.
 - **v1.9.0 (2026-08-07): publicación migrada a server-side (Fase 3 seguridad Brain) — sin tokens de servicio en cliente.** El skill conserva la lógica de decisión (routing v1.8.0, granularidad 1-tarea-1-CR, naming, gate PRD) y publica con UNA llamada a `POST /api/crear-cr` (`x-api-key: $MV_BRAIN_TOKEN`). Eliminados: escritura directa a Discord/Notion, stub Python de publicación, webhooks fallback y ejemplos de tokens. Documentado el contrato real del endpoint (acciones_array obligatorio, `issue_page_id`, `kpi_numbers` numéricos, `deadline`, `dry_run`, `exp_id` con auto-link de `experiments.link_cr` server-side, respuesta con `sync_status` por destino) y las diferencias vs el contrato viejo. Routing/testing/edge-cases actualizados a la semántica v1.8.0 del server (exp_id ya no fuerza weekly).
 - **v1.8.2 (2026-07-22)** — Restaura **Paso 5.5 — Gate de PRD (Fase 3)** que el PR de v1.8.1 había borrado por accidente (mi rama no lo tenía; el gate venía de PR#14 del equipo). Mantiene los fixes de IDs/formatos MCP de v1.8.1. cloud/skills ahora incluye el gate como canónico.
