@@ -12,14 +12,14 @@ trigger_phrases:
   - "actualizar experimento"
   - "editar issue"
   - "cambiar KPI de exp"
-version: 1.3.0
+version: 1.4.0
 owner: Julio Mori
 based_on:
   - Reqs Carlos 2026-07-17 (Company Brain v2)
   - producto/estrategia/iniciativa-ai-native-dev/08-company-brain-v2-carlos.md
 ---
 
-# Skill `editar-experimento` v1.3.0
+# Skill `editar-experimento` v1.4.0
 
 > Edita un experimento existente y sincroniza **datalake + Notion (plantilla issue) + Discord** en una sola operación. Sin re-crear desde cero. Notion queda como **capa visual estructurada** del datalake — no se edita prosa a mano.
 >
@@ -88,6 +88,26 @@ based_on:
 | `baseline_valor` | — | **solo con `force=true`** — editarlo reescribe la vara del experimento; sin force → 400 con hint |
 
 **Campos de cierre** (`resultado`, `impacto_pct`, `conclusion`, `insight`): **SÍ son editables vía `/sync` desde 2026-08-10** (BRAIN-CICLO-COMPLETO Fase 1) — al editarlos, el server publica el bloque de aprendizaje al Issue de Notion (`Issue Description` + `Fecha resultados`; textos >1900 chars se truncan con puntero al datalake). El camino normal para cerrar sigue siendo `informe-resultados` (mide + veredicto); editar el cierre a mano es para correcciones. Nota: pasar a `estado='Medido'` exige `conclusion` (en el mismo diff o ya persistida).
+
+### 🆕 Cerrar sin métricas → PEDIRLAS o RELACIONARLAS (NO bloquear) — v1.4.0
+
+No se puede pasar a `estado='Medido'` sin métricas, y el `/sync` devuelve 400 seco si faltan. En vez
+de dejar al usuario atascado, cuando el diff quiere cerrar (`estado='Medido'`) y **faltan**
+`resultado`/`impacto_pct`/`conclusion` (ni en el diff ni persistidas), o falta `baseline_valor`:
+
+1. **NO mandar el `/sync` a que 400ee.** Preguntar primero, en orden:
+   - **A) A mano:** "¿Tienes el resultado + baseline (+ conclusión)? Dámelos." → armar el `cambios`
+     con `resultado`, `impacto_pct` (o calcularlo si das baseline+resultado), `conclusion`.
+   - **B) De una tabla:** "¿La métrica está en una tabla/vista del datalake? Dame `tabla.columna`
+     (+ filtro/periodo)." → consultar **READ-ONLY** (Supabase MCP `execute_sql` / `silver_path`),
+     traer el valor y armar el `cambios`. **Regla auto-link:** la tabla/columna debe mapear a un
+     KPI/input del catálogo (`dris_definitions`/`dris_kpi_inputs`); si no, avisar antes de cerrar.
+   - **C) baseline_valor null:** setearlo en el **mismo** `cambios` con `force=true` (editar baseline
+     exige force) antes/junto con el cierre.
+2. Para el cierre formal con **medición + test estadístico + veredicto**, preferí `informe-resultados`
+   (que ya trae el mismo flujo de pedir/relacionar). Este skill es para **carga manual/corrección**.
+
+⛔ **Nunca cerrar inventando números.** Sin métrica ni fuente → dejar `En curso` con nota, no forzar `Medido`.
 
 **NO editables**: `id`, `created_at`, `fuente`.
 
@@ -180,6 +200,7 @@ exp-iniciativa (crea) → editar-experimento (modifica) → informe-resultados (
 
 ## Changelog
 
+- **v1.4.0 (2026-08-18): cerrar sin métricas → pedirlas/relacionarlas en vez de bloquear.** Al pasar a `estado='Medido'` sin `resultado`/`impacto_pct`/`conclusion` (o sin `baseline_valor`), el skill ya no deja que `/sync` 400ee seco: **pregunta** el valor a mano, ofrece **relacionar** la métrica de una tabla/vista del datalake (query read-only, regla auto-link a `dris_definitions`/`dris_kpi_inputs`), y setea baseline en el mismo `cambios` con `force=true`. Para cierre con medición+veredicto redirige a `informe-resultados` (mismo flujo). Nunca cerrar inventando números — sin fuente, queda `En curso` con nota.
 - **v1.3.0 (2026-08-11): puntero al PRD + baseline protegido.** `doc_repo`/`doc_path`/`fecha_launch` editables libres vía `/sync`; `baseline_valor` editable **solo con `force=true`** (editarlo reescribe la vara del experimento — sin force, 400 con hint). Documentado `DELETE /api/experiments/:id?cascade=true&confirm=<id>` (DOCS-BRAIN Fix 1) para deshacer una iniciativa completa cuando editar no alcanza — ver sección "Borrar un experimento".
 - **v1.2.0 (2026-08-10): campos de cierre editables.** `resultado`/`impacto_pct`/`conclusion`/`insight` pasan a ser editables vía `/sync` (antes: solo los ponía `informe-resultados`) — al editarlos, el server publica el bloque de aprendizaje al Issue de Notion. `cambios` no puede ir vacío (400); documentado el no-op para solo-notificar por Discord.
 - **v1.1.0 (2026-08-07): publicación migrada a server-side (Fase 3 seguridad Brain) — sin tokens de servicio en cliente.** Eliminado el uso de token de servicio del bot Discord y el fallback de completar el update Notion con token de sesión. `POST /api/experiments/sync` (params: `id`, `cambios{}`, `force`, `notion_page_id`) es tri-destino y el server ya publica. Auth cliente: solo `x-api-key: $MV_BRAIN_TOKEN`.

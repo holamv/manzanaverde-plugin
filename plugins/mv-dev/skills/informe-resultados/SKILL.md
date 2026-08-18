@@ -12,13 +12,13 @@ trigger_phrases:
   - "informe experimento"
   - "cerrar experimento"
   - "resultado de exp-"
-version: 1.1.0
+version: 1.2.0
 owner: Julio Mori
 based_on:
   - producto/estrategia/iniciativa-ai-native-dev/05-skill-informe-resultados.md
 ---
 
-# Skill `informe-resultados` v1.1.0
+# Skill `informe-resultados` v1.2.0
 
 > Skill del Sprint Company Brain que cierra el loop del experimento creado por `exp-iniciativa`. Es la parte que vuelve "iniciativa con apuesta" en **aprendizaje compartido** para el Company Brain.
 
@@ -31,12 +31,43 @@ POST https://data-lake-mv.manzanaverde.la/api/informe-resultados
 Headers: x-api-key: $MV_BRAIN_TOKEN · Content-Type: application/json
 Body: {
   "exp_id": "exp-2026-014",       # ✅ REQUERIDO — el param se llama exp_id, NO id
-  "resultado_override": "…",      # opcional — veredicto/resultado manual (flag --veredicto)
+  "resultado_override": 0.234,    # opcional — resultado numérico manual (KPI sin endpoint auto)
+  "n_actual_override": 480,       # opcional — tamaño de muestra manual (para el test estadístico)
+  "allow_no_datalake": true,      # opcional — cierra sin datalake (veredicto sin_datos documentado)
   "force_remedir": true           # opcional — re-corre aunque estado='Medido' (flag --remedicion)
 }
 ```
 
 El server ejecuta los 6 pasos de abajo (medición → test estadístico → veredicto → UPDATE `experiments` → publicación a los 3 destinos) y devuelve `{id, veredicto, impacto_pct, informe_md, ...}`. Los pasos del "Flujo" documentan **lo que hace el server** — el skill solo arma la llamada, interpreta la respuesta y presenta el informe.
+
+## 🆕 Métrica faltante → PEDIR o RELACIONAR (NO abortar) — v1.2.0
+
+El endpoint necesita `baseline_valor` + un resultado para calcular impacto. Cuando falta alguno
+(KPI sin endpoint North Star, `fetchResultado` = null, o `baseline_valor` null) versiones previas
+abortaban con "instrucción a Julio para arreglar el endpoint". **Ya no.** No se puede cerrar un
+experimento sin métricas → el skill las **PIDE** y cierra con lo que consigas.
+
+Cuando el endpoint responda **400** (`No hay endpoint North Star para este KPI` / `baseline_valor
+null`) o `resultado.source = 'no_data'`:
+
+1. **NO abortar. Preguntar al usuario**, en este orden:
+   - **A) Valor a mano:** "¿Tienes el resultado de la métrica? Dame el valor + `n` (tamaño de
+     muestra)." → reintentar el `POST` con `resultado_override: <valor>` + `n_actual_override: <n>`.
+   - **B) Está en una tabla:** "¿La métrica vive en una tabla/vista del datalake? Dame
+     `tabla.columna` (+ filtro/periodo)." → consultar **READ-ONLY** (Supabase MCP `execute_sql`
+     o el `silver_path` del experimento), traer el valor y pasarlo como `resultado_override`
+     (+ `n_actual_override` si la query devuelve `n`).
+     **Regla auto-link:** esa tabla/columna debe mapear a un KPI/input del catálogo
+     (`dris_definitions`/`dris_kpi_inputs`) — si no mapea, avisar antes de cerrar.
+   - **C) No hay forma real:** confirmar con el usuario y cerrar con `allow_no_datalake: true`
+     → veredicto `sin_datos`, queda documentado (NO marca `'Medido'` a ciegas).
+
+2. **Baseline faltante** (`baseline_valor null` → 400): pedir el baseline igual (valor a mano o de
+   tabla, mismas opciones A/B) y setearlo **primero** vía `editar-experimento`
+   (`cambios.baseline_valor` + `force=true`), luego reintentar el cierre. Sin baseline no hay impacto.
+
+⛔ **Nunca cerrar inventando números.** Si el usuario no tiene la métrica ni sabe de dónde sacarla,
+dejar el experimento abierto con nota — no forzar `'Medido'`.
 
 ## Cuándo se activa
 
@@ -63,8 +94,8 @@ WHERE id = $1;
 **Validaciones:**
 - `estado IN ('En curso', 'Propuesta')` → OK, continuar.
 - `estado='Medido'` → confirmar re-medir con usuario (a menos que `--remedicion`).
-- `baseline_valor IS NULL` → ABORT con mensaje "experimento sin baseline, no se puede medir impacto".
-- `kpi_definition_id IS NULL AND metrica_target IS NULL` → ABORT idem.
+- `baseline_valor IS NULL` → **NO abortar**: pedir baseline (ver "Métrica faltante") y setearlo vía `editar-experimento` (force) antes de medir.
+- `kpi_definition_id IS NULL AND metrica_target IS NULL` → **NO abortar**: pedir la métrica al usuario o relacionarla de una tabla (ver "Métrica faltante").
 
 ### Paso 2 — Leer resultado actual desde datalake
 
@@ -281,8 +312,8 @@ WHERE id = $1;
 | Hermes experiment (`hermes_proposal_id NOT NULL`) | Cruzar con `hermes_learnings`; si row vacía, llenarla con insight. |
 | Veredicto manual override (`--veredicto X`) | Usuario fuerza → param `resultado_override` del endpoint. Guardar con flag `_manual=true` en `insight`. |
 | Re-medición (`estado='Medido'` y user pide remedir) | Confirma → param `force_remedir: true` re-corre + actualiza con `_remedicion_count++` en `insight`. |
-| Sin datos en datalake (endpoint devuelve null) | Veredicto `⏸️ Extender` + instrucción a Julio para arreglar endpoint. |
-| `baseline_valor IS NULL` | ABORT con mensaje claro: "experimento sin baseline, ejecutar `/exp-iniciativa --re-baseline` antes". |
+| Sin datos en datalake (endpoint null / KPI sin North Star) | **Preguntar** al usuario (v1.2.0): valor a mano (`resultado_override`+`n_actual_override`), o relacionar de una tabla, o `allow_no_datalake`. NO abortar ni punteárselo a Julio. |
+| `baseline_valor IS NULL` | **Pedir baseline** (a mano o de tabla) → setear vía `editar-experimento` (force) → reintentar (v1.2.0). No abortar seco. |
 | Cron auto-trigger encuentra 10+ experimentos vencidos | Procesar en batch + reportar resumen a `#datos-okrs`. |
 
 ---
@@ -369,7 +400,7 @@ def informe_resultados_skill(exp_id, force_remedir=False, resultado_override=Non
 | T5 | `impacto_pct > 200%` | Sanity check, NO auto-cerrar, pide confirmación humana |
 | T6 | Hermes experiment | Cruza con `hermes_learnings`, llena row si vacía |
 | T7 | Re-medición (estado=Medido) | Confirma con usuario, re-corre con `_remedicion_count` |
-| T8 | Sin datos datalake | Veredicto Extender + instrucción Julio para fix endpoint |
+| T8 | Sin datos datalake (KPI sin North Star) | Pide métrica al usuario (`resultado_override`+`n_actual_override`) o la relaciona de una tabla; cierra con lo provisto o `allow_no_datalake`. NO abortar. |
 | T9 | `baseline_valor IS NULL` | ABORT con mensaje "ejecutar /exp-iniciativa --re-baseline" |
 | T10 | Cron batch (10 experimentos vencidos) | Procesar todos, resumen consolidado a `#datos-okrs` |
 
@@ -397,6 +428,7 @@ def informe_resultados_skill(exp_id, force_remedir=False, resultado_override=Non
 
 ## Changelog
 
+- **v1.2.0 (2026-08-18): métrica faltante → pedir/relacionar en vez de abortar.** Cuando el KPI no tiene endpoint North Star (o `baseline_valor`/resultado null), el skill ya no puntea "arreglar endpoint" ni aborta: **pregunta** al usuario el valor + `n` (→ `resultado_override` + `n_actual_override`), ofrece **relacionar** la métrica de una tabla/vista del datalake (query read-only, con regla auto-link a `dris_definitions`/`dris_kpi_inputs`), o cierra con `allow_no_datalake` (veredicto `sin_datos` documentado). Baseline faltante se setea vía `editar-experimento` (force) antes de reintentar. Documentados los params `n_actual_override` y `allow_no_datalake` (ya soportados por el endpoint). Nunca cerrar inventando números.
 - **v1.1.0 (2026-08-07): publicación migrada a server-side (Fase 3 seguridad Brain) — sin tokens de servicio en cliente.** Eliminados los caminos de escritura directa al datalake con token de servicio (inputs, cron client-side, stub). Único camino: `POST /api/informe-resultados` con `x-api-key: $MV_BRAIN_TOKEN` — params `exp_id` (NO `id`), `resultado_override` (--veredicto), `force_remedir` (--remedicion). Medición, UPDATE `experiments` y publicación a 3 destinos corren server-side.
 - **v1.0.0 (2026-06-30)** — Build inicial post-skeleton
   - 6 pasos completos

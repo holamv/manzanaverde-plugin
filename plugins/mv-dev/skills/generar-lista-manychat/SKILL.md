@@ -25,11 +25,11 @@ Cuando el usuario quiera armar/enviar una campaña de ManyChat (o tras usar **pr
 3. De la respuesta:
    - Guarda `csv` en un archivo **lista.csv** (columnas: Telefono,Nombre,Pais).
    - Guarda `plantilla` en **plantilla.json** — este es el cuerpo a pegar en ManyChat (incluye `boton`, `objetivo_campana` y el merge-tag `{{subscriber_data|to_json:true}}` literal). ManyChat debe tener mapeada la columna `objetivo_campana` en la Sheet (igual que `Call To Action`).
-   - Muestra `count` (cuántos entraron) y `hora_sugerida`.
+   - Muestra `count` (cuántos entraron), `hora_sugerida` y `telefonos_descartados` (números de 7-8 cifras inválidos que se filtraron — si es alto, avisa que hay data sucia en el BO).
 
 4. Entrega a Carolina: "Pega `plantilla.json` como cuerpo de la campaña en ManyChat y sube `lista.csv` como audiencia. Hora sugerida: {hora}."
 
 Notas:
-- La lista ya viene **opt-in only**, dedup por teléfono y **sin los contactados <7d / convertidos <30d** (anti-repetición vía `contact_history`).
+- La lista ya viene **opt-in only**, dedup por teléfono, **con teléfonos válidos** (descarta 7-8 cifras: PE≥9, MX/CO≥10) y **sin los contactados <7d / convertidos <30d** (anti-repetición vía `contact_history`).
 - `anti_repeticion: false` en filtros lo desactiva si necesitas toda la base.
 - Si `count` es bajo, es porque el público quedó chico tras filtros + anti-repetición; amplía edad/tenure o quita anti-repetición.
