@@ -10,6 +10,11 @@
       "description": "Kit completo de desarrollo para Manzana Verde: hooks de calidad, agentes especializados, skills de conocimiento y MCP servers para desarrollo seguro y estandarizado por cualquier miembro del equipo"
     },
     {
+      "name": "mv-ops",
+      "source": "./plugins/mv-ops",
+      "description": "Skills de Operaciones: proyeccion de demanda (pedidos por dia y por cocina, con ajuste por feriados) y proyeccion de insumos (kilos por ingrediente, empaques y costo de compra). Entregan reportes en Markdown"
+    },
+    {
       "name": "superpowers",
       "source": {
         "source": "github",
