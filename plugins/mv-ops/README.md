@@ -50,6 +50,10 @@ puentes decretados y cierres programados se agregan a la sección de calendario 
 `skills/proyeccion-demanda/SKILL.md` en cuanto se conocen. Es la única información que la
 proyección no puede deducir de los datos, y es donde el proceso manual perdió por más margen.
 
+Cobertura actual: **Perú, Colombia y México** (2026 y 2027). Colombia y México tienen feriados
+que cambian de fecha cada año — la Ley Emiliani corre los de Colombia al lunes, y México tiene
+tres "lunes móviles" por el artículo 74 de la LFT. **Hay que recalcularlos, no copiarlos.**
+
 ## Límites conocidos
 
 - Las ciudades de volumen chico (Piura, Monterrey, Guadalajara) no bajan del 10% de error:
@@ -57,3 +61,7 @@ proyección no puede deducir de los datos, y es donde el proceso manual perdió 
   antes de cargar.
 - Un evento operativo no registrado (un cierre imprevisto, un corporativo que se cae) no lo
   anticipa ninguna proyección.
+- **Los factores de caída por feriado solo están medidos para Perú.** Para Colombia y México las
+  fechas ya están, pero cuánto cae la demanda en cada una todavía no se calculó, así que esos
+  días salen marcados como estimados. Se resuelve midiendo los feriados de 2026 que ya pasaron
+  contra su propia línea base.
