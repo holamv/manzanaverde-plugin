@@ -1,5 +1,21 @@
 # Changelog — mv-ops
 
+## [1.1.0] - 2026-08-20
+
+### Added
+- Calendario de feriados de **Colombia** (2026 y 2027, 19 por año) con marca de cuales se
+  trasladan al lunes por la Ley Emiliani, y aviso de que once de diecinueve caen en lunes:
+  la linea base de los lunes de Bogota queda contaminada si no se excluyen de la ventana.
+- Calendario de feriados de **Mexico** (2026 y 2027) derivado de la regla del articulo 74 de la
+  LFT, con los tres lunes moviles calculados y el caso del 1 de diciembre cada seis anios.
+  Se agregan aparte los dias no obligatorios que si mueven la demanda: Semana Santa,
+  2 de noviembre y 12 de diciembre.
+
+### Notes
+- Los **factores de caida** de Mexico y Colombia siguen SIN medir. El 0.25 de Peru salio de medir
+  los feriados peruanos y no se puede copiar. La skill ahora dice como calcularlos desde la
+  historia y exige marcar el factor como estimado hasta que se midan.
+
 ## [1.0.0] - 2026-08-20
 
 ### Added

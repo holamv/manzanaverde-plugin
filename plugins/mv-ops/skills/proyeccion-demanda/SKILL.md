@@ -156,6 +156,111 @@ Correr un backtest rápido: proyectar las últimas 4 semanas con este mismo mét
 
 **Efecto puente:** los días laborales adyacentes a un feriado también caen. En Fiestas Patrias 2026 toda la semana estuvo deprimida, no solo el 28 y 29. Aplicar `factor_puente` a los días pegados.
 
+---
+
+## Calendario de feriados — Colombia
+
+Colombia tiene 19 feriados al año. La mayoría se rige por la **Ley Emiliani** (Ley 51 de 1983): el
+feriado se corre al lunes siguiente. Por eso casi todos los lunes marcados abajo son festivos
+trasladados, no fechas fijas — **hay que recalcularlos cada año, no copiarlos**.
+
+| 2026 | Día | Feriado | Ley Emiliani |
+|---|---|---|:--:|
+| 1 ene | jue | Año Nuevo | — |
+| 12 ene | lun | Reyes Magos | sí |
+| 23 mar | lun | San José | sí |
+| 2 abr | jue | Jueves Santo | — |
+| 3 abr | vie | Viernes Santo | — |
+| 1 may | vie | Día del Trabajo | — |
+| 18 may | lun | Ascensión del Señor | sí |
+| 8 jun | lun | Corpus Christi | sí |
+| 15 jun | lun | Sagrado Corazón | sí |
+| 29 jun | lun | San Pedro y San Pablo | sí |
+| 13 jul | lun | Virgen del Carmen | sí |
+| 20 jul | lun | Independencia | — |
+| 7 ago | vie | Batalla de Boyacá | — |
+| 17 ago | lun | Asunción de la Virgen | sí |
+| 12 oct | lun | Día de la Raza | sí |
+| 2 nov | lun | Todos los Santos | sí |
+| 16 nov | lun | Independencia de Cartagena | sí |
+| 8 dic | mar | Inmaculada Concepción | — |
+| 25 dic | vie | Navidad | — |
+
+| 2027 | Día | Feriado | Ley Emiliani |
+|---|---|---|:--:|
+| 1 ene | vie | Año Nuevo | — |
+| 11 ene | lun | Reyes Magos | sí |
+| 22 mar | lun | San José | sí |
+| 25 mar | jue | Jueves Santo | — |
+| 26 mar | vie | Viernes Santo | — |
+| 1 may | sáb | Día del Trabajo | — |
+| 10 may | lun | Ascensión del Señor | sí |
+| 31 may | lun | Corpus Christi | sí |
+| 7 jun | lun | Sagrado Corazón | sí |
+| 5 jul | lun | San Pedro y San Pablo | sí |
+| 12 jul | lun | Virgen del Carmen | sí |
+| 20 jul | mar | Independencia | — |
+| 7 ago | sáb | Batalla de Boyacá | — |
+| 16 ago | lun | Asunción de la Virgen | sí |
+| 18 oct | lun | Día de la Raza | sí |
+| 1 nov | lun | Todos los Santos | sí |
+| 15 nov | lun | Independencia de Cartagena | sí |
+| 8 dic | mié | Inmaculada Concepción | — |
+| 25 dic | sáb | Navidad | — |
+
+**Ojo con Colombia:** once de los diecinueve feriados caen en lunes. Un lunes cualquiera en Bogotá
+tiene alta probabilidad de ser festivo, así que la mediana de lunes de las últimas 26 semanas
+**viene contaminada** por esos festivos. Antes de calcular la línea base de lunes, excluir los
+lunes festivos de la ventana histórica; si no, la proyección de todos los lunes sale baja.
+
+---
+
+## Calendario de feriados — México
+
+Siete días de descanso obligatorio, fijados por el **artículo 74 de la Ley Federal del Trabajo**.
+Tres son "lunes móvil" y por eso cambian de fecha cada año: se calculan con la regla, no se copian.
+
+| Regla (art. 74) | 2026 | 2027 |
+|---|---|---|
+| 1 de enero | 1 ene (jue) | 1 ene (vie) |
+| Primer lunes de febrero (por el 5 feb, Constitución) | 2 feb (lun) | 1 feb (lun) |
+| Tercer lunes de marzo (por el 21 mar, Benito Juárez) | 16 mar (lun) | 15 mar (lun) |
+| 1 de mayo — Día del Trabajo | 1 may (vie) | 1 may (sáb) |
+| 16 de septiembre — Independencia | 16 sep (mié) | 16 sep (jue) |
+| Tercer lunes de noviembre (por el 20 nov, Revolución) | 16 nov (lun) | 15 nov (lun) |
+| 25 de diciembre — Navidad | 25 dic (vie) | 25 dic (sáb) |
+
+Existe un octavo caso: **1 de diciembre cada seis años**, cuando hay transmisión del Poder
+Ejecutivo. El último fue 2024; el próximo, 2030. No aplica a 2026 ni 2027.
+
+**No son de descanso obligatorio pero sí afectan la demanda** (oficinas y colegios cierran, que es
+donde come el cliente de Menú Diario). Tratarlos como feriado con su propio factor:
+
+| Día | 2026 | 2027 |
+|---|---|---|
+| Jueves y Viernes Santo | 2–3 abr | 25–26 mar |
+| 2 de noviembre — Día de Muertos | 2 nov (lun) | 2 nov (mar) |
+| 12 de diciembre — Virgen de Guadalupe | 12 dic (sáb) | 12 dic (dom) |
+
+---
+
+## ⚠️ Los factores de caída de México y Colombia todavía NO están medidos
+
+El `0.25` de la tabla de Perú **no se puede copiar a los otros dos países**: salió de medir los
+feriados peruanos contra su propia línea base. Aplicarlo a Bogotá o CDMX sería inventar.
+
+Mientras no estén medidos, para México y Colombia:
+
+1. Marcar el día como feriado en el reporte y **decir explícitamente que el factor es estimado**.
+2. Sacar el factor de la propia historia, feriado por feriado:
+   `factor = pedidos_reales_del_feriado ÷ mediana_de_ese_día_de_semana`
+   sobre los feriados de 2026 que ya pasaron. En Colombia hay doce; en México, cuatro.
+3. Guardar el factor medido en esta tabla y anotar sobre cuántas observaciones se calculó.
+
+Un feriado con factor inventado es peor que un feriado sin factor: el reporte se ve preciso y no lo es.
+
+---
+
 Para otros países, construir el calendario equivalente antes de proyectar.
 
 ---
