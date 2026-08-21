@@ -1,7 +1,7 @@
 {
   "name": "mv-ops",
   "description": "Skills de Operaciones de Manzana Verde: proyeccion de demanda (pedidos por dia y por cocina) y proyeccion de insumos (kilos por ingrediente, empaques y costo de compra). Entregan reportes en Markdown, sin necesidad de perfil tecnico",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "author": {
     "name": "Manzana Verde",
     "email": "tech@manzanaverde.com"
