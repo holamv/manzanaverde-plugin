@@ -137,6 +137,39 @@ Headers: Prefer: count=exact | Range: 0-0
 Para cada día de la semana, sacar la **mediana** de las últimas 26 semanas
 (mediana, no promedio: resiste feriados y outliers).
 
+#### ⚠️ Obligatorio: excluir los feriados de la ventana ANTES de sacar la mediana
+
+No alcanza con que la mediana sea robusta. Hay que **filtrar los días feriados de la ventana
+histórica** antes de calcular, para los tres países:
+
+```js
+const base = {};
+for (let d = 0; d < 7; d++) {
+  const valores = ventana26sem
+    .filter(f => diaDeSemana(f) === d && !esFeriado(f, pais))   // <- el filtro que importa
+    .map(f => pedidos[f]);
+  base[d] = mediana(valores);
+}
+```
+
+Medido el 21-08-2026 sobre 26 semanas reales, esto es lo que cambia si se omite el filtro:
+
+| País y día | Excluyendo feriados | Sin excluir | Error si se omite |
+|---|--:|--:|--:|
+| **Colombia, lunes** | **507** | **481** | **−5.0%** |
+| Colombia, resto de días | — | — | entre 0% y −0.4% |
+| Perú, todos los días | — | — | entre 0% y −1.2% |
+| México, todos los días | — | — | entre 0% y −0.8% |
+
+**El caso grave es Colombia: 8 de los 26 lunes de la ventana son festivos** (San José, Ascensión,
+Corpus Christi, Sagrado Corazón, San Pedro y San Pablo, Virgen del Carmen, Independencia,
+Asunción). Casi un tercio. Sin el filtro, **todos** los lunes de Bogotá se proyectan 5% bajos —
+no solo los feriados.
+
+Y es un riesgo que puede empeorar: si en algún año más de la mitad de los lunes de la ventana
+caen festivos, la mediana deja de resistir y la línea base se derrumba. El filtro no es una
+optimización, es lo que evita que eso pase.
+
 **Referencia validada Perú (feb–ago 2026)** — usar como control de sanidad, no como valor fijo:
 
 | Día | Mediana | Nota |
