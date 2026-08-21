@@ -1,5 +1,23 @@
 # Changelog — mv-ops
 
+## [1.3.0] - 2026-08-21
+
+### Added
+- **Factores de caída por feriado medidos para los tres paises**, sobre los feriados de 2026 y
+  contra la linea base de su propio dia de semana: Peru 0.30 (7 feriados), Colombia 0.30 (12),
+  Mexico 0.45 (4). Antes solo Peru estaba medido y los otros dos salian marcados como estimados.
+  Hallazgo: **el feriado mexicano pega bastante menos** — usar alla el factor peruano subestimaria
+  la demanda del feriado en un 50%.
+- Dos feriados "flojos" con factor propio, porque caen la mitad de lo normal: 6 de agosto en
+  Peru (0.60) y Batalla de Boyaca en Colombia (0.56).
+- **Amortiguacion de la tendencia por pais**, elegida por backtest de 6 semanas: Peru y Mexico a
+  la mitad del cambio observado, Colombia completa. Colombia crece sostenido y amortiguarla dejaba
+  la proyeccion corta entre 5% y 8%.
+- Error del metodo medido por pais: Colombia 2.6%, Mexico 4.5%, Peru 11.2%. Peru queda marcado
+  como el menos preciso, con instruccion de entregarlo como referencia a revisar y no como
+  numero para cargar a ciegas.
+- Instrucciones para recalcular los factores y para excluir los feriados que caen domingo.
+
 ## [1.2.0] - 2026-08-20
 
 ### Added
