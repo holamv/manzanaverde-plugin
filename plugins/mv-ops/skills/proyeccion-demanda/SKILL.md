@@ -183,18 +183,28 @@ Correr un backtest rápido: proyectar las últimas 4 semanas con este mismo mét
 
 | Fecha | Feriado | Factor |
 |---|---|--:|
-| 1 ene | Año Nuevo | 0.25 |
-| Jueves y Viernes Santo | Semana Santa (móvil) | 0.25 |
-| 1 may | Día del Trabajo | 0.25 |
-| 29 jun | San Pedro y San Pablo | 0.25 |
-| 28–29 jul | Fiestas Patrias | 0.25 |
-| 30 ago | Santa Rosa de Lima | 0.25 |
-| 8 oct | Combate de Angamos | 0.25 |
-| 1 nov | Todos los Santos | 0.25 |
-| 8 dic | Inmaculada Concepción | 0.25 |
-| 25 dic | Navidad | 0.25 |
+| 1 ene | Año Nuevo | 0.30 |
+| Jueves y Viernes Santo | Semana Santa (móvil) | 0.30 |
+| 1 may | Día del Trabajo | 0.30 |
+| 29 jun | San Pedro y San Pablo | 0.30 |
+| **23 jul** | **Ley 32083** | **0.47** |
+| 28–29 jul | Fiestas Patrias | 0.30 |
+| **6 ago** | **Ley 32083** | **0.60** |
+| 30 ago | Santa Rosa de Lima | 0.30 |
+| 8 oct | Combate de Angamos | 0.30 |
+| 1 nov | Todos los Santos | 0.30 |
+| **9 dic** | **Ley 32083** | 0.30 *(sin medir)* |
+| 8 dic | Inmaculada Concepción | 0.30 |
+| 25 dic | Navidad | 0.30 |
 
-**Verificar cada año** (hay feriados que se agregan por ley, como 6 ago y 9 dic; en 2026 el 6 de agosto mostró una caída de 40%).
+**Los tres feriados de la Ley 32083** (23 jul, 6 ago, 9 dic) se agregaron por ley y son fáciles de
+pasar por alto. Verificado sobre 2026: el **23 de julio** cayó a 339 pedidos contra una base de 727
+(factor 0.47) y el **6 de agosto** a 435 (factor 0.60) — los dos pegan **menos** que un feriado
+normal, así que llevan factor propio y no el del país. El **9 de diciembre** todavía no ocurrió:
+usar 0.30 provisional y medirlo cuando pase.
+
+**Verificar cada año.** Los feriados peruanos cambian por ley con más frecuencia que en los otros
+dos países.
 
 **Efecto puente:** los días laborales adyacentes a un feriado también caen. En Fiestas Patrias 2026 toda la semana estuvo deprimida, no solo el 28 y 29. Aplicar `factor_puente` a los días pegados.
 
@@ -302,11 +312,12 @@ subestimaría la demanda de un feriado en un 50%.
 
 ### Feriados "flojos" — tratar aparte
 
-Dos feriados caen la mitad de lo normal. Usar su propio factor, no el del país:
+Tres feriados caen la mitad de lo normal. Usar su propio factor, no el del país:
 
 | Feriado | País | Factor medido |
 |---|---|--:|
-| 6 de agosto | Perú | 0.60 |
+| 23 de julio (Ley 32083) | Perú | 0.47 |
+| 6 de agosto (Ley 32083) | Perú | 0.60 |
 | Batalla de Boyacá (7 ago) | Colombia | 0.56 |
 
 ### Cómo actualizar estos factores
