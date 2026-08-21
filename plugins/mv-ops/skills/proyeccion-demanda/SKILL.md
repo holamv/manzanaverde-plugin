@@ -286,20 +286,53 @@ donde come el cliente de Menú Diario). Tratarlos como feriado con su propio fac
 
 ---
 
-## ⚠️ Los factores de caída de México y Colombia todavía NO están medidos
+## Factores de caída por feriado — medidos por país
 
-El `0.25` de la tabla de Perú **no se puede copiar a los otros dos países**: salió de medir los
-feriados peruanos contra su propia línea base. Aplicarlo a Bogotá o CDMX sería inventar.
+Medidos el 21-08-2026 sobre los feriados de 2026 de cada país, uno por uno:
+`factor = pedidos_reales_del_feriado ÷ mediana_de_ese_día_de_semana` (mediana de los factores).
 
-Mientras no estén medidos, para México y Colombia:
+| País | Factor | Feriados medidos | Lectura |
+|---|--:|--:|---|
+| Perú | **0.30** | 7 | Cae ~70%. Coincide con el 0.25 que estaba documentado |
+| Colombia | **0.30** | 12 | Cae ~70%, igual que Perú |
+| México | **0.45** | 4 | **Cae solo ~55% — el feriado mexicano pega bastante menos** |
 
-1. Marcar el día como feriado en el reporte y **decir explícitamente que el factor es estimado**.
-2. Sacar el factor de la propia historia, feriado por feriado:
-   `factor = pedidos_reales_del_feriado ÷ mediana_de_ese_día_de_semana`
-   sobre los feriados de 2026 que ya pasaron. En Colombia hay doce; en México, cuatro.
-3. Guardar el factor medido en esta tabla y anotar sobre cuántas observaciones se calculó.
+**No copiar el factor de un país a otro.** México lo demuestra: usar el 0.30 de Perú allá
+subestimaría la demanda de un feriado en un 50%.
+
+### Feriados "flojos" — tratar aparte
+
+Dos feriados caen la mitad de lo normal. Usar su propio factor, no el del país:
+
+| Feriado | País | Factor medido |
+|---|---|--:|
+| 6 de agosto | Perú | 0.60 |
+| Batalla de Boyacá (7 ago) | Colombia | 0.56 |
+
+### Cómo actualizar estos factores
+
+Recalcular una vez al año, o cuando el error del feriado en `HISTORIAL.md` se salga de rango:
+tomar los feriados del país en las últimas 26 semanas, sacar el factor de cada uno contra la
+línea base de su día de semana, y guardar acá la **mediana** más el número de observaciones.
+
+Excluir los feriados que caen domingo: no hay reparto, el factor no significa nada.
 
 Un feriado con factor inventado es peor que un feriado sin factor: el reporte se ve preciso y no lo es.
+
+### Amortiguación de la tendencia — también por país
+
+Validado por backtest sobre las 6 últimas semanas completas (21-08-2026):
+
+| País | Tendencia a aplicar | Error del método | Sesgo |
+|---|---|--:|--:|
+| Perú | mitad del cambio observado | 11.2% | +1.1% |
+| México | mitad del cambio observado | 4.5% | +0.1% |
+| Colombia | **completa** | 2.6% | −2.3% |
+
+Colombia viene creciendo de forma sostenida: amortiguar su tendencia dejaba la proyección
+sistemáticamente corta (−5% a −8%). Perú es el menos preciso de los tres porque sus semanas
+oscilan más — sobre 4 semanas su error llega a 15.2%, así que **para Perú siempre entregar la
+cifra como referencia a revisar el lunes, no como número para cargar a ciegas**.
 
 ---
 
