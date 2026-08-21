@@ -46,6 +46,11 @@ MV_MIRROR_URL       # https://<proyecto>.supabase.co/rest/v1
 MV_MIRROR_ANON_KEY  # anon key
 ```
 
+**Cómo obtenerlas:** igual que en `proyeccion-demanda` — primero las variables de entorno, y si no
+están, un archivo `.env` en `./.env` → `~/Projects/.env` → `~/.env`. El bloque de carga está en la
+sección *Fuente de datos* de esa skill; usar el mismo. **No pedirle las credenciales al usuario por
+chat**, y nunca escribirlas en un reporte ni en la conversación.
+
 ### Tabla `meals` — el corazón de esta skill
 
 | Campo | Uso |

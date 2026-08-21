@@ -22,8 +22,25 @@ de datos no relaciona pedidos con platos, así que ese dato lo aporta Operacione
 
 ## Configuración — obligatoria antes del primer uso
 
-Las dos skills leen del espejo de datos de MV en Supabase, en **solo lectura**. Hacen falta
-dos variables de entorno. Pídeselas al Tech Lead.
+Las dos skills leen del espejo de datos de MV en Supabase, en **solo lectura**. Hacen falta dos
+datos: la URL y la anon key. Pídeselos al Tech Lead. Hay dos formas de guardarlos, y las skills
+buscan primero la A y luego la B.
+
+### Opción A — archivo `.env` (la más simple)
+
+Crea un archivo `.env` con estas dos líneas. Sirve en `./.env` (la carpeta donde trabajas),
+en `~/Projects/.env` o en `~/.env`:
+
+```
+MV_MIRROR_URL=https://<proyecto>.supabase.co/rest/v1
+MV_MIRROR_ANON_KEY=<anon key>
+```
+
+Sin comillas y sin nada más en la línea. **No hace falta reiniciar Claude Code.**
+
+Si el `.env` va dentro de un repositorio, confirma que esté en el `.gitignore`.
+
+### Opción B — variables de entorno
 
 Windows (PowerShell) — `notepad $PROFILE` y agregar:
 
@@ -39,9 +56,11 @@ export MV_MIRROR_URL="https://<proyecto>.supabase.co/rest/v1"
 export MV_MIRROR_ANON_KEY="<anon key>"
 ```
 
-Después hay que **reiniciar Claude Code**: las variables se leen al arrancar.
+Acá sí hay que **reiniciar Claude Code**: las variables se leen al arrancar. Ojo en Windows: si tu
+`$PROFILE` está dentro de OneDrive, la llave se sincroniza a la nube — en ese caso mejor la opción A.
 
-> Nunca pegues estas credenciales en el chat ni las escribas dentro de un reporte.
+> Nunca pegues estas credenciales en el chat ni las escribas dentro de un reporte. Las skills están
+> instruidas para buscarlas solas y para no pedírtelas por conversación.
 
 ## Mantenimiento
 
