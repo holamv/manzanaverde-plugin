@@ -34,10 +34,52 @@ MV_MIRROR_URL       # https://<proyecto>.supabase.co/rest/v1
 MV_MIRROR_ANON_KEY  # anon key (rol anónimo, solo SELECT)
 ```
 
-Si faltan, pedirlas al Tech Lead y guiar al usuario para configurarlas
-(Windows PS → `$PROFILE`: `$env:MV_MIRROR_URL = "..."`), luego reiniciar Claude Code.
+### Cómo obtener las credenciales — en este orden
 
-**Nunca escribir estas credenciales en el reporte ni en ningún archivo del repo.**
+**No pedirle las credenciales al usuario por chat.** Buscarlas así, y usar la primera que aparezca:
+
+1. **Variables de entorno** `MV_MIRROR_URL` y `MV_MIRROR_ANON_KEY`.
+2. **Archivo `.env`**, en este orden: `./.env` (directorio de trabajo) → `%USERPROFILE%/Projects/.env`
+   → `%USERPROFILE%/.env`. En macOS/Linux, `~/Projects/.env` → `~/.env`.
+
+Cargarlo con este bloque, que resuelve las dos fuentes y no imprime nunca el valor:
+
+```js
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+
+function credenciales() {
+  let url = process.env.MV_MIRROR_URL;
+  let key = process.env.MV_MIRROR_ANON_KEY;
+  const candidatos = [
+    path.join(process.cwd(), '.env'),
+    path.join(os.homedir(), 'Projects', '.env'),
+    path.join(os.homedir(), '.env'),
+  ];
+  for (const f of candidatos) {
+    if (url && key) break;
+    if (!fs.existsSync(f)) continue;
+    for (const linea of fs.readFileSync(f, 'utf8').split(/\r?\n/)) {
+      const m = linea.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+      if (!m) continue;
+      const v = m[2].trim().replace(/^["']|["']$/g, '');
+      if (m[1] === 'MV_MIRROR_URL' && !url) url = v;
+      if (m[1] === 'MV_MIRROR_ANON_KEY' && !key) key = v;
+    }
+  }
+  if (!url || !key) {
+    throw new Error('Faltan MV_MIRROR_URL / MV_MIRROR_ANON_KEY. Pedirlas al Tech Lead y guardarlas en .env o en el entorno.');
+  }
+  return { url: url.replace(/\/$/, ''), headers: { apikey: key, Authorization: `Bearer ${key}` } };
+}
+```
+
+Solo si ninguna de las dos fuentes las tiene: decirle al usuario que las pida al Tech Lead y que
+las guarde **él mismo** en un `.env` o en su perfil de shell. Nunca aceptarlas pegadas en el chat;
+si el usuario las pega igual, avisarle y no repetirlas en ninguna respuesta.
+
+**Nunca escribir estas credenciales en el reporte, en un archivo del repo, ni en la conversación.**
 
 ### Tablas disponibles
 

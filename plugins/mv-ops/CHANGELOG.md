@@ -1,5 +1,19 @@
 # Changelog — mv-ops
 
+## [1.2.0] - 2026-08-20
+
+### Added
+- Las skills ahora resuelven las credenciales del espejo solas, en orden: variables de entorno
+  → `./.env` → `~/Projects/.env` → `~/.env`. Antes solo miraban las variables de entorno, asi que
+  quien guardaba las credenciales en un `.env` recibia "faltan credenciales" y no habia forma de
+  usarlas sin reiniciar Claude Code. Bloque de carga incluido y probado.
+- README: las dos opciones de configuracion (`.env` primero, variables de entorno despues), con el
+  aviso de que en Windows un `$PROFILE` dentro de OneDrive sincroniza la llave a la nube.
+
+### Changed
+- Las skills tienen instruccion explicita de **no pedir las credenciales por chat** y de no
+  repetirlas en ninguna respuesta ni reporte.
+
 ## [1.1.0] - 2026-08-20
 
 ### Added
