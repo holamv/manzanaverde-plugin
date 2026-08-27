@@ -10,8 +10,10 @@ son skills que producen **reportes en Markdown**, listos para pegar en Notion o 
 | `proyeccion-demanda` | Pedidos esperados por día y por cocina, con ajuste por feriados y registro de acierto | "proyección de pedidos", "cuántos pedidos esperamos", "precantidades" |
 | `proyeccion-insumos` | Cuántos platos preparar y cuántos kilos de cada ingrediente comprar, con merma, empaques y costo | "cuánto comprar", "lista de compras", "explosión de recetas" |
 
-`proyeccion-insumos` necesita el **menú planificado de la semana** como entrada: el espejo
-de datos no relaciona pedidos con platos, así que ese dato lo aporta Operaciones.
+`proyeccion-insumos` saca el mix de platos del **histórico real de ventas por plato**
+(`meal_orders_daily` cruzado con `daily_menu`), así que no hay que pasarle porcentajes.
+Lo único que puede llegar a pedir es **qué platos van cada día**, y solo si el menú de esa semana
+todavía no está cargado en el sistema.
 
 ## Instalación
 

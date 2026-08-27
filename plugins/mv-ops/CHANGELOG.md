@@ -1,5 +1,49 @@
 # Changelog — mv-ops
 
+## [1.6.0] - 2026-08-22
+
+### Fixed
+- **`proyeccion-insumos` ya no pide el mix de platos: lo deriva del histórico.** La skill afirmaba,
+  bajo el titulo "Restriccion fundamental", que el espejo "no tiene ninguna tabla que enlace pedidos
+  con platos" y que se habia verificado que no existian `order_details` ni equivalentes. Es falso.
+  El lake tiene **`meal_orders_daily`** (`order_date` x `meal_id` x `store_id`, con `unidades`),
+  creada en la migracion 006 del datalake y descrita ahi textualmente como "ventas diarias por
+  plato x tienda (reemplaza order_details raw)". Sobre esa premisa equivocada, la skill le pedia a
+  Ops que tipeara porcentajes a mano y multiplicaba: el numero clave lo ponia la persona, no el
+  historico. Ahora la participacion de cada plato sale de sus ventas reales, contando solo los dias
+  en que estuvo ofrecido segun `daily_menu`.
+
+### Added
+- **Dias de exposicion como divisor.** La participacion de un plato se calcula sobre los dias en que
+  estuvo en el menu de su sede, no sobre todos los dias. Sin ese filtro, todo plato ocasional se
+  proyecta bajisimo.
+- **Rendimiento historico de cocina**, via `catering_daily_metrics`: contraste de volumen contra
+  `orders` y alerta por `rating_average` en caida. Entra como **contraste y alerta, nunca como
+  multiplicador** — no hay elasticidad medida entre calificacion y volumen, y aplicar un factor
+  inventado mueve los kilos de compra con un numero que nadie validó. `incident_ratio` y
+  `percentage_late_routes` estan NULL a proposito en origen y no se rellenan.
+- **Frecuencia de pedidos** en `proyeccion-demanda` (Paso 6b): pedidos por cliente por semana, via
+  `orders.customer_id` + `customers.plan_actual`. Tambien como contraste, no multiplicador — la
+  mediana de 26 semanas ya contiene la frecuencia, y aplicar ambos cuenta dos veces el mismo efecto.
+  El valor es anticipar el quiebre antes de que la mediana lo absorba.
+- **Columna `Base` obligatoria en el reporte de platos**: dice si cada cantidad salio del historico
+  del plato o fue estimada por familia de proteina (platos nuevos, sin historico propio).
+- Documentado el **cruce de llaves** que las tablas no comparten: `meal_orders_daily.store_id` y
+  `catering_daily_metrics.catering_id` son cocina (`stores.store_id`), pero `daily_menu` y
+  `meal_feedbacks` van por **sede** (`branch_office_id`). Una sede tiene varias cocinas.
+
+### Changed
+- `proyeccion-demanda`: la tabla de fuentes decia que el mix de platos salia de `meals`. `meals` es
+  solo el catalogo; el mix esta en `meal_orders_daily`.
+- Si el historico de ventas por plato trae menos de 4 semanas, la skill **para y no entrega
+  numeros**, en vez de caer en un supuesto silencioso.
+
+### Known limits
+- La calificacion de plato (`meal_feedbacks`) es por sede, no por cocina: no se puede atribuir un
+  plato mal calificado a una cocina puntual.
+- La merma sigue siendo la estandar de la receta, igual para todas las cocinas.
+
+
 ## [1.3.0] - 2026-08-21
 
 ### Added

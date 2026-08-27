@@ -86,9 +86,16 @@ si el usuario las pega igual, avisarle y no repetirlas en ninguna respuesta.
 | Tabla | Campos | Uso |
 |---|---|---|
 | `orders` | `id, customer_id, fecha, monto, catering_id, status_id, synced_at` | Serie histórica de pedidos |
-| `stores` | `store_id, store_name, city, country, country_id, cocina_id, catering_level, is_active, business_type` | Cocinas / tiendas |
-| `customers` | `id, nombre, email, telefono, pais, plan_actual, created_at` | Frecuencia por cliente |
-| `meals` | `meal_id, meal_name, protein_type, is_star, food_cost_local, calories, ...` | Mix de platos |
+| `stores` | `store_id, store_name, city, country, country_id, cocina_id, branch_office_id, catering_level, is_active, business_type` | Cocinas / tiendas |
+| `customers` | `id, nombre, email, telefono, pais, plan_actual, created_at` | Frecuencia por cliente (ver Paso 7) |
+| `meal_orders_daily` | `order_date, meal_id, store_id, country_id, unidades` | **Ventas reales por plato y cocina** |
+| `daily_menu` | `date, branch_office_id, meal_id, meal_type` | Qué platos van cada día, por sede |
+| `catering_daily_metrics` | `catering_id, day_date, orders, rating_average` | Rendimiento diario de cocina |
+| `meals` | `meal_id, meal_name, protein_type, is_star, full_recipe, food_cost_local, calories, ...` | Catálogo y recetas |
+
+> **El mix de platos NO sale de `meals`.** `meals` es solo el catálogo. El mix real está en
+> `meal_orders_daily` (unidades por plato, cocina y día) cruzado con `daily_menu` (los días en que
+> el plato estuvo ofrecido). Eso lo hace `proyeccion-insumos`; esta skill proyecta el volumen.
 
 ### ⚠️ Trampas conocidas
 
@@ -199,6 +206,32 @@ Ver el calendario más abajo.
 
 Comparar el promedio de las últimas 4 semanas **sin feriados** contra las 4 anteriores.
 Aplicar el delta de forma suave. Referencia Perú: **−5.3% semestral** (declive leve).
+
+### Paso 6b — Frecuencia de pedidos (contraste, no multiplicador)
+
+La mediana histórica ya contiene la frecuencia de forma implícita: si la gente pide menos seguido,
+caen los pedidos por día y la mediana lo recoge. El valor de mirar la frecuencia aparte es
+**detectar el quiebre antes de que la mediana lo absorba**, porque la mediana de 26 semanas tarda
+semanas en reaccionar.
+
+```
+pedidos_por_cliente(semana) = pedidos(semana) ÷ clientes_distintos(semana)
+```
+
+`orders.customer_id` da los clientes distintos por semana; `customers.plan_actual` permite separarlo
+por tipo de plan. Comparar las últimas 4 semanas contra las 4 anteriores.
+
+**Antes de usarlo, verificar que las dos tablas tengan datos** (`Prefer: count=exact`). Si
+`customers` viene vacía o `customer_id` viene nulo en la mayoría de las filas, **omitir este paso y
+decirlo en el reporte** — no sustituirlo por un supuesto.
+
+Reglas de uso, iguales a las del rendimiento de cocina:
+
+- **Sí:** avisar en el reporte si los pedidos por cliente se movieron más de 10%, porque anticipa
+  hacia dónde va la mediana.
+- **Sí:** informar la apertura por plan cuando ayude a explicar el movimiento.
+- **No:** multiplicar la proyección por el cambio de frecuencia. Estaría contando dos veces el mismo
+  efecto: ya está dentro de la mediana. Aplicar ambos infla o deprime la proyección sin fundamento.
 
 ### Paso 7 — Proyectar por cocina
 
