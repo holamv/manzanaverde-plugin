@@ -3,6 +3,9 @@
 Plugin para el equipo de Operaciones de Manzana Verde. No trae hooks ni servidores MCP:
 son skills que producen **reportes en Markdown**, listos para pegar en Notion o Discord.
 
+> **Para instalarlo: [INSTALAR.md](./INSTALAR.md).** Leé la advertencia sobre el nombre del
+> marketplace si ya tenés `mv-dev` — los dos repos declaran el mismo y choca.
+
 ## Skills
 
 | Skill | Para qué sirve | Cómo se pide |

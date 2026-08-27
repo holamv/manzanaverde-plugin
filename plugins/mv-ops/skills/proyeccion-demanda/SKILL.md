@@ -147,12 +147,12 @@ metía los anulados en la base histórica.
 
 Medido el 2026-08-27 sobre las 7 cocinas de Lima:
 
-| Día | `orders` sin filtrar | Solo facturados | Anulados que se colaban |
-|---|--:|--:|--:|
-| 2026-08-18 | 712 | 688 | 24 |
-| 2026-08-19 | 790 | 748 | 42 |
-| 2026-08-25 | 781 | 738 | 43 |
-| 2026-08-26 | 810 | 767 | 43 |
+| Día medido | Anulados que se colaban, sobre el total facturado |
+|---|--:|
+| 1 | 3.5% |
+| 2 | 5.6% |
+| 3 | 5.8% |
+| 4 | 5.6% |
 
 Un **5.5% de inflación sistemática** en la línea base, sobre la que después se aplica la tendencia
 y el margen. Los estados son: 1 ingresado · 2 **anular** · 3 en camino · 4 **facturado** ·
@@ -176,9 +176,9 @@ GET {MV_MIRROR_URL}/orders?select=fecha,catering_id&catering_id=in.(id1,...)&sta
     &fecha=gte.{lunes}&fecha=lt.{lunes siguiente}&limit=10000
 ```
 
-Un request por semana (~3.600 filas por semana en Lima) y agregar del lado del cliente por fecha y
-cocina. Verificado el 2026-08-27: con `status_id=neq.2` el 25-ago da **738**, exactamente lo mismo
-que `catering_daily_metrics`. Sin el filtro daba 781.
+Un request por semana y agregar del lado del cliente por fecha y cocina. Verificado: con
+`status_id=neq.2` da **exactamente el mismo número** que `catering_daily_metrics`. Sin el filtro da
+~5.5% más.
 
 Usar esta vía solo cuando la ventana corta sea un problema real —estacionalidad anual, por ejemplo—.
 Para la proyección semanal, la tabla agregada es un request contra 26 y da lo mismo.
@@ -186,10 +186,10 @@ Para la proyección semanal, la tabla agregada es un request contra 26 y da lo m
 #### Cuándo `orders` sí es la fuente correcta
 
 Para saber **qué hay que cocinar hoy** —no para la base histórica— la vista operativa cuenta los
-*ingresados*, incluidos los que todavía pueden cancelarse. Esa es la columna CANTIDAD de
-`backend.manzanaverde.la/mapa`, y el 2026-08-25 marcaba 787 contra los 738 facturados. Las dos
-cifras son legítimas y miden cosas distintas: 787 es el compromiso de producción del día, 738 es
-el resultado. **Esta skill proyecta a partir del resultado.**
+*ingresados*, incluidos los que todavía pueden cancelarse — la columna CANTIDAD de la pantalla de
+mapa del BackOffice, que corre unos puntos por encima de lo facturado. Las dos cifras son legítimas
+y miden cosas distintas: una es el compromiso de producción del día, la otra es el resultado.
+**Esta skill proyecta a partir del resultado.**
 
 #### Ventaja lateral
 
@@ -573,10 +573,12 @@ Escribir exactamente esta estructura en `proyecciones/YYYY-MM-DD-proyeccion.md`:
 
 | Día | Precantidad usada | Real | Error | Real de la semana anterior | Error si se hubiera usado ese |
 |---|--:|--:|--:|--:|--:|
-| lunes | 680 | 595 | **+14.3%** | 602 | +1.2% |
-| martes | 760 | 738 | +3.0% | 688 | −6.8% |
-| miércoles | 830 | 767 | +8.2% | 748 | −2.5% |
+| lunes | 114 | 100 | **+14.3%** | 101 | +1.2% |
+| martes | 103 | 100 | +3.0% | 93 | −6.8% |
+| miércoles | 108 | 100 | +8.2% | 98 | −2.5% |
 | **Error promedio** | | | **8.5%** | | **3.5%** |
+
+*(Valores indexados: el real de cada día = 100. Los porcentajes son los medidos.)*
 
 **Las dos últimas columnas son el punto de esta tabla.** No alcanza con decir cuánto erró el plan:
 hay que decir si el ajuste que se le aplicó lo mejoró o lo empeoró. La comparación es contra el

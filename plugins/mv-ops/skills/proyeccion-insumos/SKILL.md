@@ -260,14 +260,17 @@ al histórico, avisarlo como alerta.
 La razón es muy estable, así que cuando se mueve fuerte lo más probable **no** es que la demanda
 haya cambiado, sino que una de las dos tablas dejó de cargarse. Medido en Lima el 2026-08-27:
 
-| Día | Platos | Pedidos | Razón |
-|---|--:|--:|--:|
-| 2026-08-18 | 1156 | 688 | 1.68 |
-| 2026-08-19 | 1268 | 748 | 1.70 |
-| 2026-08-21 | 1074 | 618 | 1.74 |
-| 2026-08-24 | 999 | 595 | 1.68 |
-| 2026-08-25 | 546 | 738 | **0.74** |
-| 2026-08-26 | 316 | 767 | **0.41** |
+| Día medido | Razón platos/pedidos |
+|---|--:|
+| 1 | 1.68 |
+| 2 | 1.70 |
+| 3 | 1.74 |
+| 4 | 1.68 |
+| 5 | **0.74** |
+| 6 | **0.41** |
+
+Se muestra solo la razón a propósito: es lo único que importa acá, y los volúmenes absolutos no
+tienen por qué vivir en un repo público.
 
 `meal_orders_daily` se cortó a mitad de semana mientras `catering_daily_metrics` siguió normal. Un
 cambio real de demanda mueve las dos series juntas; que **una sola** se desplome es una falla de

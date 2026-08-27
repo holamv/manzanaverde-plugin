@@ -9,15 +9,15 @@ pasada -> precantidades de esta. Eso hizo medible el resultado, y lo medido no e
 - **El Paso 3 contaba pedidos anulados.** Armaba la serie historica con 182 requests —uno por dia—
   contando filas de `orders` con `Prefer: count=exact`, sin filtrar el estado. Los estados son
   1 ingresado, 2 **anular**, 3 en camino, 4 **facturado**, 5 devuelto
-  (`src/mixins/OrdersMixins.js` del BackOffice). Medido en las 7 cocinas de Lima: 712/688,
-  790/748, 781/738, 810/767 — un **5.5% de inflacion sistematica** en la linea base, sobre la que
-  despues se aplican la tendencia y el margen. Ahora la serie sale de
+  (`src/mixins/OrdersMixins.js` del BackOffice). Medido sobre cuatro dias de un pais, la proporcion
+  de anulados que se colaba fue de 3.4% a 5.5%, con **~5.5% de inflacion sistematica** en la linea
+  base, sobre la que despues se aplican la tendencia y el margen. Ahora la serie sale de
   `catering_daily_metrics.orders`, que cuenta solo facturados: **un request en vez de 182**, y
-  viene desagregada por cocina. Verificado que `orders` + `status_id=neq.2` da 738 el 25-ago,
-  exactamente lo mismo.
+  viene desagregada por cocina. Verificado que `orders` + `status_id=neq.2` da exactamente el mismo
+  numero.
 - **El Paso 7 repartia el total por participacion historica**, o sea suponiendo que todas las
-  cocinas se mueven juntas. No se mueven: el 25-ago Los Olivos - Mercurio vino **+30%** sobre su
-  precantidad y Miraflores - Arica **-20%**, el mismo dia. Ahora cada cocina se proyecta sobre su
+  cocinas se mueven juntas. No se mueven: hay dias medidos en que una cocina vino ~30% por encima
+  de su precantidad y otra ~20% por debajo, el mismo dia. Ahora cada cocina se proyecta sobre su
   propia serie. Se conserva el reparto proporcional solo para una cocina con menos de 4 semanas de
   historia propia, y marcado en el reporte.
 
@@ -26,7 +26,7 @@ pasada -> precantidades de esta. Eso hizo medible el resultado, y lo medido no e
   proyeccion de la skill contra el real. Ahora van tres columnas: proyeccion, **precantidad que Ops
   uso de verdad** (el numero que costo plata), y **el mismo dia de la semana anterior sin ajuste**.
   Con una sola columna no se distingue "el modelo es bueno" de "esta semana fue facil". Medido en la
-  semana 35 de Lima, el ajuste **pierde** contra no hacer nada: 8.5% de error contra 3.5%.
+  semana medida, el ajuste **pierde** contra no hacer nada: 8.5% de error contra 3.5%.
 - **Freno nuevo en el Paso 9:** si el metodo erra mas que el predictor de referencia, se dice en
   Alertas con las dos cifras. No bloquea la entrega, pero no puede quedar callado.
 - **Diagnostico de tabla atrasada en `proyeccion-insumos`.** El contraste platos/pedidos ya existia
