@@ -1,6 +1,60 @@
 # Changelog — mv-ops
 
+## [1.6.2] - 2026-08-27
+
+Se corrio contra el espejo comparando con el metodo que Ops usa de verdad: reales de la semana
+pasada -> precantidades de esta. Eso hizo medible el resultado, y lo medido no es bueno.
+
+### Fixed
+- **El Paso 3 contaba pedidos anulados.** Armaba la serie historica con 182 requests —uno por dia—
+  contando filas de `orders` con `Prefer: count=exact`, sin filtrar el estado. Los estados son
+  1 ingresado, 2 **anular**, 3 en camino, 4 **facturado**, 5 devuelto
+  (`src/mixins/OrdersMixins.js` del BackOffice). Medido en las 7 cocinas de Lima: 712/688,
+  790/748, 781/738, 810/767 — un **5.5% de inflacion sistematica** en la linea base, sobre la que
+  despues se aplican la tendencia y el margen. Ahora la serie sale de
+  `catering_daily_metrics.orders`, que cuenta solo facturados: **un request en vez de 182**, y
+  viene desagregada por cocina. Verificado que `orders` + `status_id=neq.2` da 738 el 25-ago,
+  exactamente lo mismo.
+- **El Paso 7 repartia el total por participacion historica**, o sea suponiendo que todas las
+  cocinas se mueven juntas. No se mueven: el 25-ago Los Olivos - Mercurio vino **+30%** sobre su
+  precantidad y Miraflores - Arica **-20%**, el mismo dia. Ahora cada cocina se proyecta sobre su
+  propia serie. Se conserva el reparto proporcional solo para una cocina con menos de 4 semanas de
+  historia propia, y marcado en el reporte.
+
+### Added
+- **El reporte mide su propio error, y contra una referencia.** La seccion de acierto comparaba la
+  proyeccion de la skill contra el real. Ahora van tres columnas: proyeccion, **precantidad que Ops
+  uso de verdad** (el numero que costo plata), y **el mismo dia de la semana anterior sin ajuste**.
+  Con una sola columna no se distingue "el modelo es bueno" de "esta semana fue facil". Medido en la
+  semana 35 de Lima, el ajuste **pierde** contra no hacer nada: 8.5% de error contra 3.5%.
+- **Freno nuevo en el Paso 9:** si el metodo erra mas que el predictor de referencia, se dice en
+  Alertas con las dos cifras. No bloquea la entrega, pero no puede quedar callado.
+- **Diagnostico de tabla atrasada en `proyeccion-insumos`.** El contraste platos/pedidos ya existia
+  y estaba bien planteado, pero diagnosticaba mal. La razon es estable (1.68, 1.70, 1.74, 1.68) y se
+  desploma a 0.74 el 25-ago y 0.41 el 26 porque `meal_orders_daily` dejo de cargarse mientras
+  `catering_daily_metrics` siguio normal. Un cambio real de demanda mueve las dos series juntas;
+  que caiga una sola es una falla de carga. Se agregan los tres casos, que hacer en cada uno, y
+  revisar la ultima fecha de cada tabla antes de calcular nada.
+
+### Changed
+- La ventana historica **ya no se declara como 26 semanas por inercia**.
+  `catering_daily_metrics` arranca el 2026-04-16 (~19 semanas): el reporte informa la ventana real
+  usada, y queda documentada la vuelta a `orders` —que arranca en 2018— para cuando hagan falta mas,
+  siempre CON el filtro de estado.
+- El registro historico pasa de 4 columnas a 8, para poder ver si el metodo se degrada o si
+  simplemente nunca le gano a la referencia.
+- La redaccion sobre el margen: un colchon deliberado es legitimo (quedarse corto cuesta mas que
+  sobrar). Lo que no es legitimo es que este horneado en la formula sin que nadie lo haya elegido.
+
+### Pendiente, fuera de esta skill
+- **`meal_orders_daily` sigue cortada** desde el 2026-08-25. Es del datalake
+  (`scripts/backfill-menudiario-platos.mjs`), no de aca.
+- Las precantidades **ya son un modulo del BackOffice** (`src/views/precantidades/`,
+  `GET prequantities/get_prequantities_matrix?date=`). Falta saber si la hoja de calculo de Ops
+  alimenta ese modulo o corre en paralelo — si es lo segundo, hay dos verdades sobre la misma semana.
+
 ## [1.6.1] - 2026-08-24
+
 
 Primera version validada contra los datos reales del espejo. La 1.6.0 corrigio el metodo pero nunca
 se corrio: era un documento de instrucciones sin comprobar. Esto es lo que apareció al ejecutarlo.

@@ -255,6 +255,37 @@ es la relación real (un pedido puede llevar varios platos), así que lo que se 
 *estabilidad de la razón* platos/pedidos, no los valores. Si esa razón se movió más de 15% respecto
 al histórico, avisarlo como alerta.
 
+#### Antes de culpar a la demanda: revisar si una de las dos tablas está atrasada
+
+La razón es muy estable, así que cuando se mueve fuerte lo más probable **no** es que la demanda
+haya cambiado, sino que una de las dos tablas dejó de cargarse. Medido en Lima el 2026-08-27:
+
+| Día | Platos | Pedidos | Razón |
+|---|--:|--:|--:|
+| 2026-08-18 | 1156 | 688 | 1.68 |
+| 2026-08-19 | 1268 | 748 | 1.70 |
+| 2026-08-21 | 1074 | 618 | 1.74 |
+| 2026-08-24 | 999 | 595 | 1.68 |
+| 2026-08-25 | 546 | 738 | **0.74** |
+| 2026-08-26 | 316 | 767 | **0.41** |
+
+`meal_orders_daily` se cortó a mitad de semana mientras `catering_daily_metrics` siguió normal. Un
+cambio real de demanda mueve las dos series juntas; que **una sola** se desplome es una falla de
+carga.
+
+Cómo distinguirlo, y qué hacer:
+
+- **La razón cae y los pedidos siguen normales** → `meal_orders_daily` está atrasada. **Parar**: el
+  mix de platos de esos días es incompleto y proyectar sobre él subestima las compras. Recortar la
+  ventana histórica al último día con razón dentro de rango y decirlo en el reporte.
+- **La razón sube y los platos siguen normales** → `catering_daily_metrics` está atrasada. Afecta al
+  contraste, no al mix; se puede seguir, avisando.
+- **Las dos series se mueven juntas** → recién ahí es un cambio de demanda o de composición de la
+  carta, y va como alerta de negocio.
+
+Comprobar además la última fecha de cada tabla contra hoy. Si `meal_orders_daily` no llega a ayer,
+decirlo antes de cualquier número: es la señal más temprana y no depende de calcular la razón.
+
 ### Paso 4 — Saber qué platos van esta semana
 
 ```

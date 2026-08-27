@@ -19,7 +19,7 @@ Siempre archivos **Markdown**, nunca dashboards ni código:
 | Archivo | Contenido |
 |---|---|
 | `proyecciones/YYYY-MM-DD-proyeccion.md` | El reporte de la semana (entregable principal) |
-| `proyecciones/HISTORIAL.md` | Acumulado de proyectado vs. real, con % de error |
+| `proyecciones/HISTORIAL.md` | Acumulado de proyectado, precantidad usada y real, con los tres errores |
 
 Si la carpeta `proyecciones/` no existe, crearla.
 
@@ -90,7 +90,7 @@ si el usuario las pega igual, avisarle y no repetirlas en ninguna respuesta.
 | `customers` | `id, nombre, email, telefono, pais, plan_actual, created_at` | Frecuencia por cliente (ver Paso 7) |
 | `meal_orders_daily` | `order_date, meal_id, store_id, country_id, unidades` | **Ventas reales por plato y cocina** |
 | `daily_menu` | `date, branch_office_id, meal_id, meal_type` | Qué platos van cada día, por sede |
-| `catering_daily_metrics` | `catering_id, day_date, orders, rating_average` | Rendimiento diario de cocina |
+| `catering_daily_metrics` | `catering_id, day_date, orders, rating_average` | **La serie de demanda** (ver Paso 3). `orders` = pedidos facturados por cocina y día |
 | `meals` | `meal_id, meal_name, protein_type, is_star, full_recipe, food_cost_local, calories, ...` | Catálogo y recetas |
 
 > **El mix de platos NO sale de `meals`.** `meals` es solo el catálogo. El mix real está en
@@ -100,6 +100,7 @@ si el usuario las pega igual, avisarle y no repetirlas en ninguna respuesta.
 ### ⚠️ Trampas conocidas
 
 1. **`orders.catering_id` corresponde a `stores.store_id`** — no existe tabla `caterings`. Este es el join correcto.
+1b. **`orders` NO trae el estado filtrado.** Contar sus filas mete los pedidos anulados (status 2) en la serie: +5.5% medido. Ver Paso 3 — para la base histórica se usa `catering_daily_metrics`, que cuenta solo facturados.
 2. **`monto` está en moneda local** (PEN en Perú, MXN en México, COP en Colombia). **Nunca sumar montos de distintos países.**
 3. **`fecha` es timestamptz** a medianoche local convertida a UTC (`05:00Z` en Perú).
 4. **PostgREST no permite funciones de agregación** (`sum()`, `count()` en `select`). Para contar usar cabeceras:
@@ -130,14 +131,70 @@ Guardar la lista de `store_id`. **Incluir también las inactivas** para el hist�
 
 ### Paso 3 — Traer la serie diaria (últimas 26 semanas)
 
-Un request por día, en paralelo (8 hilos), leyendo `Content-Range`:
+Una sola consulta a `catering_daily_metrics`, que ya viene agregada por cocina y día:
 
 ```
-GET {MV_MIRROR_URL}/orders?select=id&catering_id=in.(id1,id2,...)&fecha=gte.2026-01-01&fecha=lt.2026-01-02
-Headers: Prefer: count=exact | Range: 0-0
+GET {MV_MIRROR_URL}/catering_daily_metrics?catering_id=in.(id1,id2,...)&day_date=gte.{hace 26 semanas}&select=day_date,catering_id,orders&limit=10000
 ```
 
-26 semanas = 182 requests. Es rápido y es la forma correcta dado el límite de agregaciones.
+`orders` es el conteo de pedidos **facturados** de esa cocina ese día. Es la serie de demanda.
+
+#### ⚠️ NO contar filas de la tabla `orders` para esto
+
+Hasta la 1.6.1 este paso hacía 182 requests —uno por día— contando filas de `orders` con
+`Prefer: count=exact`. Eso tenía un error de fondo: **no filtraba el estado del pedido**, así que
+metía los anulados en la base histórica.
+
+Medido el 2026-08-27 sobre las 7 cocinas de Lima:
+
+| Día | `orders` sin filtrar | Solo facturados | Anulados que se colaban |
+|---|--:|--:|--:|
+| 2026-08-18 | 712 | 688 | 24 |
+| 2026-08-19 | 790 | 748 | 42 |
+| 2026-08-25 | 781 | 738 | 43 |
+| 2026-08-26 | 810 | 767 | 43 |
+
+Un **5.5% de inflación sistemática** en la línea base, sobre la que después se aplica la tendencia
+y el margen. Los estados son: 1 ingresado · 2 **anular** · 3 en camino · 4 **facturado** ·
+5 devuelto (`src/mixins/OrdersMixins.js` del BackOffice). `catering_daily_metrics.orders` cuenta
+solo el 4, y para una semana ya cerrada eso es exactamente lo que se produjo y se cobró.
+
+#### Ojo: la historia de esta tabla es más corta de lo que pide el método
+
+`catering_daily_metrics` **arranca el 2026-04-16** (verificado 2026-08-27), o sea unas **19 semanas**,
+no 26. Son 19 observaciones por día de semana: alcanza de sobra para una mediana, pero el reporte
+tiene que decir la ventana **real** usada y no "26 semanas" por inercia. Verificar la primera fecha
+disponible en cada corrida y ajustar la ventana; si quedan menos de 8 semanas, aplica el freno del
+Paso 9.
+
+#### Si hacen falta más de 19 semanas
+
+Ahí sí se vuelve a `orders`, que arranca en **2018-12-11**, pero **con el estado filtrado**:
+
+```
+GET {MV_MIRROR_URL}/orders?select=fecha,catering_id&catering_id=in.(id1,...)&status_id=neq.2
+    &fecha=gte.{lunes}&fecha=lt.{lunes siguiente}&limit=10000
+```
+
+Un request por semana (~3.600 filas por semana en Lima) y agregar del lado del cliente por fecha y
+cocina. Verificado el 2026-08-27: con `status_id=neq.2` el 25-ago da **738**, exactamente lo mismo
+que `catering_daily_metrics`. Sin el filtro daba 781.
+
+Usar esta vía solo cuando la ventana corta sea un problema real —estacionalidad anual, por ejemplo—.
+Para la proyección semanal, la tabla agregada es un request contra 26 y da lo mismo.
+
+#### Cuándo `orders` sí es la fuente correcta
+
+Para saber **qué hay que cocinar hoy** —no para la base histórica— la vista operativa cuenta los
+*ingresados*, incluidos los que todavía pueden cancelarse. Esa es la columna CANTIDAD de
+`backend.manzanaverde.la/mapa`, y el 2026-08-25 marcaba 787 contra los 738 facturados. Las dos
+cifras son legítimas y miden cosas distintas: 787 es el compromiso de producción del día, 738 es
+el resultado. **Esta skill proyecta a partir del resultado.**
+
+#### Ventaja lateral
+
+La serie viene desagregada **por cocina**, no solo el total. Eso hace innecesaria la aproximación
+del Paso 7 (repartir el total por participación histórica): cada cocina tiene su propia serie.
 
 ### Paso 4 — Calcular la línea base por día de semana
 
@@ -242,13 +299,48 @@ Reglas de uso, iguales a las del rendimiento de cocina:
 
 ### Paso 7 — Proyectar por cocina
 
-Repartir el total proyectado según la participación de cada cocina en las últimas 4 semanas.
+Correr los pasos 4 a 6 **por cocina**, sobre su propia serie: el Paso 3 ya la trae desagregada.
+
+No repartir el total por participación histórica. Eso era lo que hacía falta cuando la serie venía
+del conteo global de `orders`, y arrastra un supuesto falso: que todas las cocinas crecen y caen
+juntas. No lo hacen. Medido el 2026-08-25 contra la precantidad de esa semana, Los Olivos - Mercurio
+vino **+30%** por encima de lo planeado y Miraflores - Arica **−20%** por debajo, el mismo día.
+Un reparto proporcional no puede ver eso, y es justo la señal que Ops necesita.
+
 Si una cocina tiene `is_active = false`, excluirla de la proyección futura y decirlo en el reporte.
 
-### Paso 8 — Validar antes de entregar
+Si una cocina tiene menos de 4 semanas de historia propia, su mediana no es confiable: caer al
+reparto por participación **solo para ella**, y marcarlo en el reporte.
 
-Correr un backtest rápido: proyectar las últimas 4 semanas con este mismo método y comparar con lo real.
-**Si el MAPE supera 15%, no entregar el reporte sin una advertencia explícita** de que el modelo está fuera de rango.
+### Paso 8 — Medir la semana que acaba de cerrar
+
+Antes de proyectar, cerrar la anterior. Llena la sección "Qué tan bien le fue a la semana pasada"
+del reporte, y hace falta para el Paso 9.
+
+Traer tres series de la semana ya cerrada, por día y por cocina:
+
+1. **El real** — `catering_daily_metrics.orders` (Paso 3).
+2. **La precantidad que Ops usó de verdad** — no la que proyectó esta skill. Si no se consigue,
+   dejarla en "sin dato"; no sustituirla por la proyección propia, que es otra cosa.
+3. **El real de la semana anterior a esa**, sin ajuste — el predictor de referencia.
+
+Calcular el error de 2 y de 3 contra 1, **con signo**, por día y por cocina.
+
+### Paso 9 — Validar el método antes de entregar
+
+Backtest de las últimas 4 semanas con este mismo método, comparado con lo real.
+
+Dos frenos, no uno:
+
+- **Si el MAPE supera 15%**, no entregar el reporte sin una advertencia explícita de que el modelo
+  está fuera de rango.
+- **Si el método pierde contra el predictor de referencia** del Paso 8 —el mismo día de la semana
+  anterior, sin ajuste— decirlo en Alertas con las dos cifras. Un modelo que erra más que "lo mismo
+  que la semana pasada" no está aportando; está agregando error. Esto no bloquea la entrega, pero no
+  puede quedar callado.
+
+Si el backtest no se puede correr (menos de 8 semanas de historia), escribirlo como limitación en
+vez de omitirlo.
 
 ---
 
@@ -477,17 +569,57 @@ Escribir exactamente esta estructura en `proyecciones/YYYY-MM-DD-proyeccion.md`:
 
 *(Si no hay alertas, escribir "Sin alertas para esta semana.")*
 
-## Acierto de la proyección anterior
+## Qué tan bien le fue a la semana pasada
 
-| Semana | Proyectado | Real | Error |
-|--------|-----------:|-----:|------:|
-| {semana previa} | 3,601 | 3,540 | 1.7% |
+| Día | Precantidad usada | Real | Error | Real de la semana anterior | Error si se hubiera usado ese |
+|---|--:|--:|--:|--:|--:|
+| lunes | 680 | 595 | **+14.3%** | 602 | +1.2% |
+| martes | 760 | 738 | +3.0% | 688 | −6.8% |
+| miércoles | 830 | 767 | +8.2% | 748 | −2.5% |
+| **Error promedio** | | | **8.5%** | | **3.5%** |
+
+**Las dos últimas columnas son el punto de esta tabla.** No alcanza con decir cuánto erró el plan:
+hay que decir si el ajuste que se le aplicó lo mejoró o lo empeoró. La comparación es contra el
+predictor más tonto posible —el mismo día de la semana anterior, sin ajuste ninguno— porque si el
+método no le gana a eso, el ajuste está agregando error en vez de quitarlo.
+
+En el ejemplo de arriba (semana 35, Lima, medido el 2026-08-27) no le gana: la precantidad llevaba
++12.5% sobre el real de la semana previa y erró 8.5%, mientras el real crudo erraba 3.5%.
+
+### Cómo llenarla
+
+- **Precantidad usada**: lo que Ops fijó de verdad, no lo que esta skill proyectó. Si Ops la pega
+  en el chat, usar eso. Si no, `GET prequantities/get_prequantities_matrix?date={YYYY-MM-DD}` del
+  BackOffice (campo `platos`; `total_food` es el real que ese módulo ya calcula). Esa API pide
+  credenciales del BackOffice, que esta skill **no** tiene: si no están, dejar la columna en
+  "sin dato" y llenar solo la comparación contra la semana anterior. **No inventarla.**
+- **Real**: `catering_daily_metrics.orders` de la semana ya cerrada (Paso 3).
+- **Error**: `(plan − real) / real`, con signo. El signo importa: `+` es sobreproducción y `−` es
+  quiebre de stock, y no cuestan lo mismo. Nunca reportar solo el valor absoluto.
+- **Error promedio**: media de los valores absolutos, solo sobre los días con reparto.
+
+### Qué decir cuando el ajuste pierde
+
+Si el error del plan supera al de la semana anterior cruda, escribirlo explícito en Alertas, con la
+cifra. No es un detalle técnico: es sobreproducción sistemática que alguien está pagando.
+
+Y decirlo con cuidado — la precantidad **no es solo un pronóstico**, es también un compromiso de
+producción, y quedarse corto cuesta más que sobrar. Un colchón deliberado es legítimo. Lo que no es
+legítimo es que esté horneado en la fórmula sin que nadie lo haya elegido. La redacción correcta es
+"el margen cuesta X% de sobreproducción, ¿lo queremos?", no "el método está mal".
+
+### Por cocina, no solo el total
+
+El total puede cerrar bien y estar mal repartido. En la semana 35 el margen agregado dio +8.7% y el
+real vino +9.3% —casi perfecto— pero cocina por cocina estaba invertido: Miraflores - Arica recibió
++20% de margen y le sobró 20%, Los Olivos - Mercurio recibió +6% y le faltó 30%. **Siempre incluir
+el desglose por cocina**, ordenado por error absoluto descendente, y marcar las que se pasan de 15%.
 
 ## Cómo se calculó
 
-Mediana de las últimas 26 semanas por día de semana, ajustada por feriados y tendencia.
-Precisión histórica del método: ~7% de error.
-Fuente: espejo de datos MV (solo lectura), sincronizado al {synced_at}.
+Mediana de las últimas 26 semanas por día de semana, por cocina, ajustada por feriados y tendencia.
+Precisión del método en las últimas 4 semanas: {MAPE del backtest}% de error.
+Fuente: espejo de datos MV (solo lectura), pedidos facturados, sincronizado al {synced_at}.
 ````
 
 ### Reglas del reporte
@@ -505,13 +637,24 @@ Fuente: espejo de datos MV (solo lectura), sincronizado al {synced_at}.
 Después de generar cada reporte, agregar una fila a `proyecciones/HISTORIAL.md`:
 
 ```markdown
-| Semana | Proyectado | Real | Error | Notas |
-|--------|-----------:|-----:|------:|-------|
-| 2026-08-10 | 3,540 | — | — | Pendiente de cierre |
+| Semana | Proyectado | Precantidad usada | Real | Error proyección | Error precantidad | Error semana anterior | Notas |
+|--------|-----------:|------------------:|-----:|-----------------:|------------------:|----------------------:|-------|
+| 2026-08-24 | 3,640 | 4,040 | — | — | — | — | Pendiente de cierre |
 ```
 
-Al generar el reporte de la semana siguiente, **completar el `Real` y el `Error` de la fila anterior**.
-Este historial es lo que permite saber si el modelo se está degradando: si el error sube consistentemente por encima del 15%, hay que revisar los factores.
+Al generar el reporte de la semana siguiente, **completar el `Real` y los tres errores de la fila
+anterior**.
+
+Las tres columnas de error responden preguntas distintas, y hacen falta las tres:
+
+- **Error proyección** — ¿sirve esta skill?
+- **Error precantidad** — ¿sirve lo que Ops usó de verdad? Es el número que costó plata.
+- **Error semana anterior** — ¿le gana alguno de los dos a no hacer nada?
+
+Con una sola columna no se puede distinguir "el modelo es bueno" de "esta semana fue fácil". Si el
+error de la proyección sube consistentemente por encima del 15%, revisar los factores. Si queda por
+debajo del 15% pero **por encima** del error de la semana anterior cruda, el problema no son los
+factores: es que el ajuste no está aportando.
 
 ---
 
