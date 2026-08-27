@@ -1,5 +1,48 @@
 # Changelog — mv-ops
 
+## [1.6.1] - 2026-08-24
+
+Primera version validada contra los datos reales del espejo. La 1.6.0 corrigio el metodo pero nunca
+se corrio: era un documento de instrucciones sin comprobar. Esto es lo que apareció al ejecutarlo.
+
+### Fixed
+- **El factor de feriado contradecia a las tablas medidas.** `proyeccion-demanda` fijaba
+  `factor_feriado = 0.25` en el Paso 5, pero sus propias tablas de calendario —medidas en la 1.3.0—
+  dicen 0.30 en Peru y Colombia y 0.45 en Mexico. Seguir el 0.25 al pie de la letra subestimaba la
+  demanda de un feriado mexicano en un 44%. `proyeccion-insumos` copiaba el mismo 0.25. Ahora las
+  dos apuntan al calendario por pais como fuente de verdad.
+- **El guard del Paso 6b vigilaba la columna equivocada.** El paso de frecuencia se omitia si
+  `customers` venia vacia o `customer_id` nulo. Ninguna de las dos cosas pasa: la tabla tiene
+  708.910 filas y `customer_id` esta al 100%. Lo que si esta vacio, en las 708.910 filas, es
+  `plan_actual` — la columna con la que la skill prometia abrir por tipo de plan. El guard nunca se
+  disparaba y el paso intentaba una segmentacion imposible. Se corrigio el guard, se elimino la
+  promesa de apertura por plan, y la contradiccion interna entre las lineas 221 y 517 quedo resuelta
+  a favor de la 517, que era la que tenia razon.
+
+### Added
+- **Minimo de dias de exposicion por plato.** El divisor de exposicion no tenia piso: un plato con
+  un solo dia extrapolaba su tasa semanal desde una unica observacion. Medido: ocho platos de un dia
+  saltaron unos 275 puestos en el ranking de compra. Ahora hay tramos declarados en la columna
+  `Base` — 3+ dias usa historia propia, 2 dias la usa marcada como delgada, 1 dia o ningun dia caen
+  a la mediana de su `protein_type`, y lo que no tiene familia no se proyecta.
+- Reparto real de las unidades por tramo, para que se sepa cuanto del reporte descansa en historia
+  propia: 68.5% con 3+ dias, 13.2% con 2, 11.2% con 1, y 7.1% de platos que no estan en
+  `daily_menu`. Alrededor de un 18% se proyecta por familia.
+
+### Changed
+- README: se dejo de prometer que la skill "solo pregunta si el menu no esta cargado".
+  `daily_menu` no trae fechas futuras, asi que preguntar que platos van es el camino normal.
+
+### Validado contra datos (24/08/2026)
+- `meal_orders_daily` **existe y esta poblada**: 22.832 filas, 26,4 semanas. El hallazgo central de
+  la 1.6.0 queda confirmado.
+- **El divisor de exposicion estaba bien pensado.** Los dias de exposicion por plato en 12 semanas
+  van de 1 a 29 y normalizar cambia el ranking por completo: solo 1 de los 10 platos mas vendidos
+  sigue en el top 10. Aclaracion para quien repita la prueba: el divisor corrige el **nivel**, no la
+  varianza — la variacion semanal queda igual (69% con divisor, 70% sin).
+- La participacion por plato varia una mediana de **69%** semana a semana. La mediana de 12 semanas
+  es el estimador correcto por robusto, pero ningun numero por plato y semana va a ser preciso.
+
 ## [1.6.0] - 2026-08-22
 
 ### Fixed

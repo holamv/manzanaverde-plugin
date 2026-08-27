@@ -196,8 +196,11 @@ Si algún valor se desvía >30% de esta referencia, revisar los datos antes de r
 Los feriados son la mayor fuente de error: **duplican el error del modelo** (7.6% → 19%).
 
 ```
-factor_feriado = 0.25   # feriado nacional (caída ~75%)
-factor_puente  = 0.60   # día laboral pegado a un feriado
+# NO existe un factor único. Se midieron por país sobre los feriados de 2026
+# (ver 1.3.0). Usar el del país que se está proyectando:
+factor_feriado = 0.30   # Perú y Colombia
+factor_feriado = 0.45   # México — el feriado mexicano pega bastante menos
+factor_puente  = 0.60   # día laboral pegado a un feriado (los tres países)
 ```
 
 Ver el calendario más abajo.
@@ -218,18 +221,22 @@ semanas en reaccionar.
 pedidos_por_cliente(semana) = pedidos(semana) ÷ clientes_distintos(semana)
 ```
 
-`orders.customer_id` da los clientes distintos por semana; `customers.plan_actual` permite separarlo
-por tipo de plan. Comparar las últimas 4 semanas contra las 4 anteriores.
+`orders.customer_id` da los clientes distintos por semana. Comparar las últimas 4 semanas contra
+las 4 anteriores.
 
-**Antes de usarlo, verificar que las dos tablas tengan datos** (`Prefer: count=exact`). Si
-`customers` viene vacía o `customer_id` viene nulo en la mayoría de las filas, **omitir este paso y
-decirlo en el reporte** — no sustituirlo por un supuesto.
+**La apertura por tipo de plan NO está disponible.** `customers.plan_actual` existe como columna
+pero está **vacía en las 708.910 filas** (verificado el 24/08/2026). No intentar segmentar por plan:
+no hay dato, y rellenarlo con un supuesto es exactamente lo que esta skill no hace.
+
+**Antes de usar el paso, verificar que `orders.customer_id` venga poblado** (`Prefer: count=exact`).
+Al 24/08/2026 viene al 100%. Si en el futuro viniera nulo en la mayoría de las filas, **omitir este
+paso y decirlo en el reporte** — no sustituirlo por un supuesto.
 
 Reglas de uso, iguales a las del rendimiento de cocina:
 
 - **Sí:** avisar en el reporte si los pedidos por cliente se movieron más de 10%, porque anticipa
   hacia dónde va la mediana.
-- **Sí:** informar la apertura por plan cuando ayude a explicar el movimiento.
+- **No:** abrir por tipo de plan. `plan_actual` está vacía; ver arriba.
 - **No:** multiplicar la proyección por el cambio de frecuencia. Estaría contando dos veces el mismo
   efecto: ya está dentro de la mediana. Aplicar ambos infla o deprime la proyección sin fundamento.
 

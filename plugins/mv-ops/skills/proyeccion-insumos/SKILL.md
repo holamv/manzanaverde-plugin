@@ -83,6 +83,31 @@ Dividir sobre los días de exposición y no sobre todos los días es lo que hace
 que va todas las semanas con uno que va una vez al mes. Sin ese filtro, todo plato ocasional se
 proyecta bajísimo.
 
+**Validado contra datos el 24/08/2026:** los días de exposición por plato en 12 semanas van de 1 a
+29 (mediana 3), y aplicar el divisor cambia el ranking por completo — solo 1 de los 10 platos más
+vendidos sigue en el top 10 después de normalizar. El divisor decide la lista de compras.
+
+#### Mínimo de días de exposición — obligatorio
+
+El divisor tiene un filo: un plato con **un solo día** de exposición extrapola su tasa semanal desde
+una única observación, que puede haber caído en un día atípico. Medido: ocho platos de un día
+saltaron unos 275 puestos en el ranking. Aplicar estos tramos y **declararlos en la columna `Base`**:
+
+| Días de exposición en la ventana | Qué usar | `Base` |
+|---|---|---|
+| **3 o más** | Su propia tasa normalizada | `histórico` |
+| **2** | Su propia tasa, pero es delgada | `histórico débil` |
+| **1** | **No confiar en la tasa.** Usar la mediana de su `protein_type` | `estimado por familia` |
+| **0** (no está en `daily_menu`) | Igual que el caso de 1 día | `estimado por familia (sin menú)` |
+
+Reparto real al 24/08/2026, para saber cuánto cae en cada tramo: 3+ días cubre el 68.5% de las
+unidades, 2 días el 13.2%, 1 día el 11.2%, y el 7.1% restante no aparece en `daily_menu`. O sea que
+alrededor de **un 18% de las unidades se va a proyectar por familia y no por historia propia** — hay
+que decirlo en el reporte, no esconderlo.
+
+Si un plato de 1 día tampoco tiene familia con historia, **no proyectarlo**: listarlo aparte como
+"sin base para estimar" y que Operaciones decida a mano.
+
 Usar **mediana de las últimas 12 semanas** por día de semana, y **excluir feriados** de la ventana
 antes de calcular (mismo criterio que `proyeccion-demanda`, por la misma razón: en Colombia 8 de
 26 lunes son festivos y arrastran la mediana).
@@ -220,8 +245,10 @@ semana de las últimas 26 semanas, excluyendo feriados, por cocina.
 platos_totales(cocina, día) = mediana( Σ unidades(cocina, fecha) )   por día de semana, sin feriados
 ```
 
-Aplicar los mismos factores de `proyeccion-demanda`: `0.25` en feriado nacional, `0.60` en día
-puente, y el ajuste de tendencia de las últimas 4 semanas sin feriados.
+Aplicar los mismos factores de `proyeccion-demanda`, que son **por país** (`0.30` en Perú y
+Colombia, `0.45` en México) más el factor propio de los feriados que lo tengan, `0.60` en día
+puente, y el ajuste de tendencia de las últimas 4 semanas sin feriados. **No hardcodear un factor
+único acá**: la fuente de verdad es el calendario de `proyeccion-demanda`.
 
 **Contrastar contra `catering_daily_metrics.orders`** de esas mismas semanas. Un plato por pedido no
 es la relación real (un pedido puede llevar varios platos), así que lo que se compara es la

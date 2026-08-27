@@ -12,8 +12,9 @@ son skills que producen **reportes en Markdown**, listos para pegar en Notion o 
 
 `proyeccion-insumos` saca el mix de platos del **histórico real de ventas por plato**
 (`meal_orders_daily` cruzado con `daily_menu`), así que no hay que pasarle porcentajes.
-Lo único que puede llegar a pedir es **qué platos van cada día**, y solo si el menú de esa semana
-todavía no está cargado en el sistema.
+Lo que sí va a pedir es **qué platos van cada día**. En la práctica lo pide siempre: `daily_menu`
+no trae fechas futuras (verificado el 24/08/2026), así que el menú de la semana que se proyecta
+todavía no está cargado. Son los platos, nunca los porcentajes.
 
 ## Instalación
 
