@@ -1,16 +1,18 @@
 ---
-description: Genera el reporte de proyección de insumos y platos para Ops y Compras - cuántos platos preparar y cuántos kilos de cada ingrediente comprar por cocina y por día, con merma, empaques y costo estimado. Entrega todo en Markdown. Usar cuando pidan "cuánto comprar", "proyección de insumos", "lista de compras", "precantidades de producción", "explosión de recetas" o "cuántos platos preparar".
+description: Genera el reporte de proyección de insumos y platos para Ops y Compras - cuántos platos preparar y cuántos kilos de cada ingrediente comprar por cocina y por día, derivado del histórico real de ventas por plato, con merma, empaques y costo estimado. Entrega todo en Markdown. Usar cuando pidan "cuánto comprar", "proyección de insumos", "lista de compras", "precantidades de producción", "cuántos platos preparar" o "explosión de recetas".
 ---
 
 # Proyección de Insumos y Platos
 
-Convierte una proyección de pedidos en una **lista concreta de compras**: cuántos platos preparar por cocina y cuántos kilos de cada ingrediente se necesitan, considerando merma y empaques.
+Proyecta **cuántos platos preparar por cocina y por día** a partir del histórico real de ventas
+por plato, y los convierte en una **lista concreta de compras**: kilos por ingrediente, empaques y
+costo estimado.
 
 Entrega siempre **Markdown**, para que Ops y Compras lo peguen en Notion o Slack.
 
 ## Cuándo usar
 
-- **Planificación de compras semanal** — qué pedir a proveedores
+- **Planificación de producción y compras semanal** — cuántos platos y qué pedir a proveedores
 - **Antes de un feriado o campaña** — ajustar producción cuando la demanda cambia
 - **Costeo previo** — estimar cuánto costará producir la semana
 
@@ -18,28 +20,16 @@ Entrega siempre **Markdown**, para que Ops y Compras lo peguen en Notion o Slack
 
 | Archivo | Contenido |
 |---|---|
-| `proyecciones/YYYY-MM-DD-insumos.md` | Reporte de insumos (entregable principal) |
 | `proyecciones/YYYY-MM-DD-platos.md` | Platos a preparar por cocina y día |
+| `proyecciones/YYYY-MM-DD-insumos.md` | Insumos a comprar (entregable de Compras) |
 
 Si la carpeta `proyecciones/` no existe, crearla.
 
 ---
 
-## ⚠️ Restricción fundamental: el mix de platos NO está en los datos
-
-El espejo de datos **no tiene ninguna tabla que enlace pedidos con platos**. Se verificó: no existen `order_details`, `order_items`, `menus`, `sale_items` ni equivalentes. `orders` solo llega hasta `catering_id` y `monto`.
-
-**Consecuencia:** esta skill no puede adivinar qué platos se van a pedir. El **menú planificado es un input obligatorio** que aporta Ops.
-
-Esto no es un problema en la práctica: **Ops ya planifica el menú de la semana**. La skill toma ese plan y hace el trabajo pesado (explotar recetas, consolidar insumos, calcular merma y costo).
-
-**Nunca inventar un mix de platos.** Si el usuario no lo da, pedirlo. Si insiste en no tenerlo, decir claramente que el reporte no se puede generar y por qué.
-
----
-
 ## Fuente de datos
 
-Espejo de MV en Supabase (**solo lectura**).
+Espejo de MV en Supabase (**solo lectura**). Es el proyecto del **data lake**.
 
 ```bash
 MV_MIRROR_URL       # https://<proyecto>.supabase.co/rest/v1
@@ -51,18 +41,148 @@ están, un archivo `.env` en `./.env` → `~/Projects/.env` → `~/.env`. El blo
 sección *Fuente de datos* de esa skill; usar el mismo. **No pedirle las credenciales al usuario por
 chat**, y nunca escribirlas en un reporte ni en la conversación.
 
-### Tabla `meals` — el corazón de esta skill
+### Las cinco tablas que usa esta skill
 
-| Campo | Uso |
-|---|---|
-| `meal_id`, `meal_name` | Identificación del plato |
-| `full_recipe` (JSON) | **Receta completa con ingredientes** |
-| `protein_type`, `is_star`, `is_active` | Filtros |
-| `country`, `country_id` | Separar por país |
-| `food_cost_local` | Costo por plato (moneda local) |
-| `weight_gr`, `calories` | Referencia nutricional |
+| Tabla | Grano | Para qué |
+|---|---|---|
+| `meal_orders_daily` | `order_date` × `meal_id` × `store_id` | **Ventas reales por plato.** `unidades` = platos vendidos. Es el histórico que manda. |
+| `daily_menu` | `date` × `branch_office_id` × `meal_id` × `meal_type` | Qué platos van (o fueron) cada día, por sede |
+| `catering_daily_metrics` | `catering_id` × `day_date` | Rendimiento de cocina: `orders`, `rating_average` |
+| `meals` | `meal_id` | Catálogo + `full_recipe` (JSON) + `food_cost_local` |
+| `meal_feedbacks` | `meal_id` × `branch_office_id` | Calificación del plato (0-5) |
 
-**Cobertura verificada (ago 2026):** 1,402 de 1,409 platos tienen receta (99.5%). En Perú, 539 de 541 platos activos (99.6%). `food_cost_local` solo está en 654 platos (46%) — para el resto hay que costear desde los ingredientes.
+### ⚠️ El cruce de llaves que hay que hacer bien
+
+Las tablas **no comparten la misma llave de cocina**. Es el error más fácil de cometer:
+
+```
+meal_orders_daily.store_id      = stores.store_id      (una cocina / catering)
+catering_daily_metrics.catering_id = stores.store_id   (misma llave)
+daily_menu.branch_office_id     = stores.branch_office_id   ← ¡SEDE, no cocina!
+meal_feedbacks.branch_office_id = stores.branch_office_id   ← ¡SEDE, no cocina!
+```
+
+Una sede tiene **varias cocinas**. El menú y la calificación del plato viven a nivel sede, así que
+son iguales para todas las cocinas de esa sede. Traer `stores` primero y armar el mapa
+`store_id → branch_office_id` antes de cualquier otra consulta.
+
+---
+
+## De dónde sale el mix de platos
+
+**Del histórico, no de un supuesto.** Para cada plato se calcula qué proporción de los platos de esa
+cocina se lleva, contando **solo los días en que ese plato estuvo en el menú** de su sede:
+
+```
+participacion(plato, cocina, díaSemana) =
+      unidades(plato, cocina)  ÷  platos_totales(cocina)
+      ... sobre los días en que el plato estuvo en `daily_menu` de esa sede
+```
+
+Dividir sobre los días de exposición y no sobre todos los días es lo que hace comparable a un plato
+que va todas las semanas con uno que va una vez al mes. Sin ese filtro, todo plato ocasional se
+proyecta bajísimo.
+
+**Validado contra datos el 24/08/2026:** los días de exposición por plato en 12 semanas van de 1 a
+29 (mediana 3), y aplicar el divisor cambia el ranking por completo — solo 1 de los 10 platos más
+vendidos sigue en el top 10 después de normalizar. El divisor decide la lista de compras.
+
+#### Mínimo de días de exposición — obligatorio
+
+El divisor tiene un filo: un plato con **un solo día** de exposición extrapola su tasa semanal desde
+una única observación, que puede haber caído en un día atípico. Medido: ocho platos de un día
+saltaron unos 275 puestos en el ranking. Aplicar estos tramos y **declararlos en la columna `Base`**:
+
+| Días de exposición en la ventana | Qué usar | `Base` |
+|---|---|---|
+| **3 o más** | Su propia tasa normalizada | `histórico` |
+| **2** | Su propia tasa, pero es delgada | `histórico débil` |
+| **1** | **No confiar en la tasa.** Usar la mediana de su `protein_type` | `estimado por familia` |
+| **0** (no está en `daily_menu`) | Igual que el caso de 1 día | `estimado por familia (sin menú)` |
+
+Reparto real al 24/08/2026, para saber cuánto cae en cada tramo: 3+ días cubre el 68.5% de las
+unidades, 2 días el 13.2%, 1 día el 11.2%, y el 7.1% restante no aparece en `daily_menu`. O sea que
+alrededor de **un 18% de las unidades se va a proyectar por familia y no por historia propia** — hay
+que decirlo en el reporte, no esconderlo.
+
+Si un plato de 1 día tampoco tiene familia con historia, **no proyectarlo**: listarlo aparte como
+"sin base para estimar" y que Operaciones decida a mano.
+
+Usar **mediana de las últimas 12 semanas** por día de semana, y **excluir feriados** de la ventana
+antes de calcular (mismo criterio que `proyeccion-demanda`, por la misma razón: en Colombia 8 de
+26 lunes son festivos y arrastran la mediana).
+
+> **Dos ventanas distintas, a propósito.** El **volumen** total por cocina usa **26 semanas**, la
+> misma que `proyeccion-demanda`, para que las dos skills no se contradigan. La **participación de
+> cada plato** usa **12 semanas**, porque la carta rota: un mix de hace seis meses ya no describe lo
+> que se pide hoy. Si se usara la misma ventana para las dos cosas, o el volumen se vuelve
+> inestable, o el mix queda viejo.
+
+### Platos sin histórico
+
+Un plato nuevo no tiene participación propia. **No inventarle una.** Usar la mediana de
+participación de los platos del mismo `protein_type` en esa cocina, y **marcarlo en el reporte
+como estimado por familia**. Si tampoco hay platos de esa familia, decir que no se puede proyectar
+y pedir el dato a Ops para ese plato puntual.
+
+---
+
+## Rendimiento histórico de cocinas — qué se puede y qué no
+
+`catering_daily_metrics` trae cuatro columnas, pero **solo dos tienen datos**:
+
+| Columna | Estado | Uso permitido |
+|---|---|---|
+| `orders` | Poblada | Contraste de volumen: validar la proyección |
+| `rating_average` | Poblada | Alerta de calidad |
+| `incident_ratio` | **NULL a propósito** | Ninguno |
+| `percentage_late_routes` | **NULL a propósito** | Ninguno |
+
+Las dos últimas están vacías por decisión explícita de quien construyó la tabla: reconstruirlas dio
+números que no calzaban con el histórico real y no las poblaron con un valor adivinado. **No
+rellenarlas ni derivarlas.**
+
+**El rendimiento de cocina entra como contraste y alerta, NO como multiplicador.** Es decir:
+
+- **Sí:** contrastar el total proyectado por cocina contra `orders` de las últimas semanas, y avisar
+  si se despega más de 15%.
+- **Sí:** marcar en el reporte las cocinas con `rating_average` en caída sostenida, para que Ops
+  decida.
+- **No:** multiplicar la proyección por un factor derivado del rating. No hay ninguna elasticidad
+  medida entre calificación y volumen en estos datos. Inventar el factor mueve los kilos de compra
+  con un número que nadie validó.
+
+Si alguien pide que el rating ajuste la proyección, lo que hace falta primero es medir esa relación
+sobre el histórico y escribirla acá. Hasta entonces, contraste y alerta.
+
+---
+
+## ⚠️ Trampas verificadas
+
+1. **El subgrupo `Empaque` se cuenta en UNIDADES, no gramos.** Sus ingredientes (CT5, salseros,
+   cubiertos, servilletas, bolsa) tienen `porcion = 1` = una unidad por plato. **Nunca sumarlos como
+   kilos.** Detectarlo por el nombre del subgrupo.
+
+2. **`porcion` del ingrediente ya es peso crudo.** El `weight` del subgrupo es el peso *cocido*:
+   `porcion × reduction% = weight`. Verificado: pollo 110g × 65% = 71.5g. **Para comprar se usa
+   `porcion`, no `weight`.**
+
+3. **La suma de ingredientes ≠ `porcion` del subgrupo.** El subgrupo reporta solo el componente
+   principal; el resto (agua, sal, marinada) va aparte. Consolidar siempre a nivel **ingrediente**,
+   nunca de subgrupo.
+
+4. **`daily_menu` no trae la receta.** Está así a propósito: duplicar el JSON de receta por fila
+   reventaba el tiempo de consulta. Hacer **un lookup a `meals.full_recipe` por `meal_id`**.
+
+5. **`meal_feedbacks` es por sede, no por cocina.** No se puede afirmar "este plato sale mal en la
+   cocina X". Si el reporte lo insinúa, está mintiendo.
+
+6. **Nunca mezclar países.** `food_cost_local` está en moneda local y `country_id` es 1=PE, 2=MX,
+   3=CO.
+
+7. **PostgREST no permite agregaciones.** Para contar usar `Prefer: count=exact` + `Range: 0-0` y
+   leer `Content-Range`. Para sumar `unidades`, traer las filas y sumar en memoria: el grano diario
+   por plato y cocina es chico.
 
 ### Estructura de `full_recipe`
 
@@ -81,60 +201,130 @@ full_recipe
         └── cut_name           tipo de corte
 ```
 
-### ⚠️ Trampas verificadas
-
-1. **El subgrupo `Empaque` se cuenta en UNIDADES, no gramos.** Sus ingredientes (CT5, salseros, cubiertos, servilletas, bolsa) tienen `porcion = 1` = una unidad por plato. **Nunca sumarlos como kilos.** Detectarlo por el nombre del subgrupo.
-
-2. **`porcion` del ingrediente ya es peso crudo.** El `weight` del subgrupo es el peso *cocido*: `porcion × reduction% = weight`. Verificado: pollo 110g × 65% = 71.5g. **Para comprar se usa `porcion`, no `weight`.**
-
-3. **La suma de ingredientes ≠ `porcion` del subgrupo.** El subgrupo reporta solo el componente principal; el resto (agua, sal, marinada) va aparte. Consolidar siempre a nivel **ingrediente**, nunca de subgrupo.
-
-4. **`monto` de `orders` está en moneda local** — nunca mezclar países.
-
-5. **PostgREST no permite agregaciones.** Para contar usar `Prefer: count=exact` + `Range: 0-0` y leer `Content-Range`.
-
 ---
 
 ## Proceso
 
-### Paso 1 — Obtener la proyección de pedidos
+### Paso 1 — Alcance y mapa de cocinas
 
-Usar la skill `proyeccion-demanda` (pedidos esperados por día y por cocina).
-Si ya existe un reporte reciente en `proyecciones/`, reutilizarlo en vez de recalcular.
-
-### Paso 2 — Pedir el menú planificado
-
-Preguntar a Ops, en el formato más simple posible:
-
-> ¿Qué platos van esta semana y qué porcentaje de los pedidos esperas de cada uno?
-> Ejemplo: Lunes — Pollo saltado 40%, Ensalada surimi 35%, Lomo 25%
-
-Aceptar también un archivo o una tabla pegada. Si Ops da cantidades absolutas en vez de porcentajes, usarlas directamente.
-
-**Validar que los porcentajes sumen ~100% por día.** Si no, avisar antes de continuar.
-
-### Paso 3 — Calcular platos por cocina y día
+Preguntar solo si no está claro: **país** (por defecto Perú) y **semanas a proyectar** (por
+defecto 1).
 
 ```
-platos(plato, cocina, día) = pedidos_proyectados(cocina, día) × participación(plato, día)
+GET {MV_MIRROR_URL}/stores?select=store_id,store_name,city,branch_office_id,catering_level,is_active,country_id
 ```
 
-Redondear hacia arriba: es preferible que sobre a que falte.
+Guardar el mapa `store_id → branch_office_id`. Incluir las inactivas para el histórico.
 
-### Paso 4 — Traer las recetas
-
-```
-GET {MV_MIRROR_URL}/meals?select=meal_id,meal_name,full_recipe,food_cost_local&meal_id=in.(...)
-```
-
-Si un plato no tiene `full_recipe`, **no estimarlo**: listarlo en la sección de alertas como "sin receta cargada" y excluirlo del consolidado.
-
-### Paso 5 — Explotar a ingredientes
-
-Para cada ingrediente de cada plato:
+### Paso 2 — Traer el histórico de ventas por plato (26 semanas)
 
 ```
-cantidad_neta(g)  = porcion × n_platos
+GET {MV_MIRROR_URL}/meal_orders_daily?select=order_date,meal_id,store_id,unidades
+    &order_date=gte.{hace 26 semanas}&store_id=in.({ids del país})
+```
+
+Y los días de exposición de cada plato, en la misma ventana:
+
+```
+GET {MV_MIRROR_URL}/daily_menu?select=date,branch_office_id,meal_id
+    &date=gte.{hace 26 semanas}&branch_office_id=in.({sedes del país})
+```
+
+De esas 26 semanas, el **volumen** usa todas y la **participación por plato** solo las **últimas
+12** (ver arriba por qué). Paginar si hace falta: `Range` en cabecera, no `limit` en el query.
+
+**Si `meal_orders_daily` viene vacía o con menos de 4 semanas**, parar: decir que el histórico no
+alcanza para proyectar y no entregar números. No caer en un supuesto silencioso.
+
+### Paso 3 — Proyectar los platos totales por cocina y día
+
+Mismo método que `proyeccion-demanda`, pero sobre **platos** en vez de pedidos: mediana por día de
+semana de las últimas 26 semanas, excluyendo feriados, por cocina.
+
+```
+platos_totales(cocina, día) = mediana( Σ unidades(cocina, fecha) )   por día de semana, sin feriados
+```
+
+Aplicar los mismos factores de `proyeccion-demanda`, que son **por país** (`0.30` en Perú y
+Colombia, `0.45` en México) más el factor propio de los feriados que lo tengan, `0.60` en día
+puente, y el ajuste de tendencia de las últimas 4 semanas sin feriados. **No hardcodear un factor
+único acá**: la fuente de verdad es el calendario de `proyeccion-demanda`.
+
+**Contrastar contra `catering_daily_metrics.orders`** de esas mismas semanas. Un plato por pedido no
+es la relación real (un pedido puede llevar varios platos), así que lo que se compara es la
+*estabilidad de la razón* platos/pedidos, no los valores. Si esa razón se movió más de 15% respecto
+al histórico, avisarlo como alerta.
+
+#### Antes de culpar a la demanda: revisar si una de las dos tablas está atrasada
+
+La razón es muy estable, así que cuando se mueve fuerte lo más probable **no** es que la demanda
+haya cambiado, sino que una de las dos tablas dejó de cargarse. Medido en Lima el 2026-08-27:
+
+| Día medido | Razón platos/pedidos |
+|---|--:|
+| 1 | 1.68 |
+| 2 | 1.70 |
+| 3 | 1.74 |
+| 4 | 1.68 |
+| 5 | **0.74** |
+| 6 | **0.41** |
+
+Se muestra solo la razón a propósito: es lo único que importa acá, y los volúmenes absolutos no
+tienen por qué vivir en un repo público.
+
+`meal_orders_daily` se cortó a mitad de semana mientras `catering_daily_metrics` siguió normal. Un
+cambio real de demanda mueve las dos series juntas; que **una sola** se desplome es una falla de
+carga.
+
+Cómo distinguirlo, y qué hacer:
+
+- **La razón cae y los pedidos siguen normales** → `meal_orders_daily` está atrasada. **Parar**: el
+  mix de platos de esos días es incompleto y proyectar sobre él subestima las compras. Recortar la
+  ventana histórica al último día con razón dentro de rango y decirlo en el reporte.
+- **La razón sube y los platos siguen normales** → `catering_daily_metrics` está atrasada. Afecta al
+  contraste, no al mix; se puede seguir, avisando.
+- **Las dos series se mueven juntas** → recién ahí es un cambio de demanda o de composición de la
+  carta, y va como alerta de negocio.
+
+Comprobar además la última fecha de cada tabla contra hoy. Si `meal_orders_daily` no llega a ayer,
+decirlo antes de cualquier número: es la señal más temprana y no depende de calcular la razón.
+
+### Paso 4 — Saber qué platos van esta semana
+
+```
+GET {MV_MIRROR_URL}/daily_menu?select=date,branch_office_id,meal_id,meal_type
+    &date=gte.{lunes}&date=lte.{domingo}
+```
+
+- **Si viene cargada:** usarla. La skill no pregunta nada.
+- **Si viene vacía** (el menú aún no se publicó): pedirle a Ops solo **qué platos van cada día** —
+  no los porcentajes. La participación la calcula la skill del histórico. Decirlo así:
+
+  > El menú de esa semana todavía no está cargado. Pasame solo qué platos van cada día y yo saco
+  > las cantidades del histórico.
+
+### Paso 5 — Repartir entre los platos del día
+
+```
+platos(plato, cocina, día) = platos_totales(cocina, día) × participacion_normalizada(plato, cocina, díaSemana)
+```
+
+Normalizar las participaciones de los platos de ese día para que sumen 1. Redondear **hacia
+arriba**: es preferible que sobre a que falte.
+
+### Paso 6 — Traer las recetas
+
+```
+GET {MV_MIRROR_URL}/meals?select=meal_id,meal_name,protein_type,full_recipe,food_cost_local&meal_id=in.(...)
+```
+
+Si un plato no tiene `full_recipe`, **no estimarlo**: listarlo en alertas como "sin receta cargada"
+y excluirlo del consolidado de insumos (pero dejarlo en el reporte de platos).
+
+### Paso 7 — Explotar a ingredientes
+
+```
+cantidad_neta(g)   = porcion × n_platos
 cantidad_compra(g) = cantidad_neta / (1 - merma_porcentaje/100)
 ```
 
@@ -149,80 +339,23 @@ unidades = porcion × n_platos      # subgrupo "Empaque"
 > por `1 + merma`. En un insumo con 25% de merma la diferencia es ~7% de la compra.
 > Dejar anotado en el reporte qué convención se usó.
 
-### Paso 6 — Consolidar
+### Paso 8 — Consolidar
 
-Agrupar por `ingredient_id` (no por `NOMALIM`, que puede tener variantes de escritura).
-Sumar por cocina y por día. Convertir a **kilogramos** cuando supere 1,000 g.
+Agrupar por `ingredient_id` (no por `NOMALIM`, que tiene variantes de escritura). Sumar por cocina
+y por día. Convertir a **kilogramos** cuando supere 1,000 g.
 
-### Paso 7 — Estimar el costo
+### Paso 9 — Estimar el costo
 
-Preferir `food_cost_local × n_platos` cuando el plato lo tenga (más confiable).
-Si falta, sumar `cantidad_compra_kg × price_level` de cada ingrediente y marcarlo como **estimado**.
+Preferir `food_cost_local × n_platos` cuando el plato lo tenga (más confiable). Si falta, sumar
+`cantidad_compra_kg × price_level` de cada ingrediente y marcarlo como **estimado**.
 
 **Nunca sumar costos de distintos países.**
 
-### Paso 8 — Generar los reportes
+### Paso 10 — Generar los reportes
 
 Escribir los dos `.md` con las plantillas de abajo.
 
 ---
-
-## Plantilla — Reporte de insumos
-
-Escribir en `proyecciones/YYYY-MM-DD-insumos.md`:
-
-````markdown
-# Proyección de Insumos — {País}
-**Semana:** {lunes} al {domingo}
-**Generado:** {fecha}
-
-## Resumen
-
-Para **{TOTAL} pedidos** proyectados se necesitan **{N} insumos distintos**,
-con un costo estimado de **{MONEDA} {MONTO}**.
-
-{Una línea de contexto: feriados, cambios de menú, cocinas fuera de servicio.}
-
-## Insumos a comprar — consolidado
-
-| Insumo | Cantidad | Unidad | Costo estimado |
-|--------|---------:|--------|---------------:|
-| Pechuga de pollo fresca | 145.8 | kg | S/ 2,752 |
-| Lechuga americana | 62.3 | kg | S/ 311 |
-| ... | | | |
-| **Total** | | | **S/ 12,480** |
-
-## Desglose por cocina
-
-### {Nombre de cocina} — {ciudad}
-
-| Insumo | Cantidad | Unidad |
-|--------|---------:|--------|
-| ... | | |
-
-## Empaques y descartables
-
-| Artículo | Cantidad | Unidad |
-|----------|---------:|--------|
-| CT5 | 3,540 | unidades |
-| Kit de cubiertos | 3,540 | unidades |
-| ... | | |
-
-## ⚠️ Alertas
-
-- {Platos sin receta cargada — excluidos del cálculo}
-- {Insumos con merma alta (>30%) donde conviene revisar el proveedor}
-- {Cambios fuertes vs. la semana pasada}
-
-*(Si no hay alertas: "Sin alertas para esta semana.")*
-
-## Supuestos usados
-
-- Pedidos proyectados: {fuente y fecha}
-- Mix de platos: {quién lo entregó y cuándo}
-- Merma: convención "dividir por (1 − merma)" — {validada / pendiente de validar} con Chef
-- Costos: {N} platos con costo oficial, {M} estimados desde ingredientes
-````
 
 ## Plantilla — Reporte de platos
 
@@ -231,6 +364,7 @@ Escribir en `proyecciones/YYYY-MM-DD-platos.md`:
 ````markdown
 # Platos a Preparar — {País}
 **Semana:** {lunes} al {domingo}
+**Generado:** {fecha}
 
 ## Total por día
 
@@ -244,10 +378,77 @@ Escribir en `proyecciones/YYYY-MM-DD-platos.md`:
 
 ### {Nombre de cocina}
 
-| Plato | Lun | Mar | Mié | Jue | Vie | Sáb | Total |
-|-------|----:|----:|----:|----:|----:|----:|------:|
-| Pollo saltado | 120 | 140 | 138 | 134 | 118 | 38 | 688 |
-| ... | | | | | | | |
+| Plato | Lun | Mar | Mié | Jue | Vie | Sáb | Total | Base |
+|-------|----:|----:|----:|----:|----:|----:|------:|------|
+| Pollo saltado | 120 | 140 | 138 | 134 | 118 | 38 | 688 | histórico |
+| Lomo nuevo | 40 | — | — | 44 | — | — | 84 | estimado por familia |
+
+La columna **Base** dice de dónde salió la cantidad: `histórico` (ventas reales del plato) o
+`estimado por familia` (plato nuevo, se usó el promedio de su tipo de proteína).
+
+## Contraste con el histórico de cocinas
+
+| Cocina | Platos proyectados | Pedidos histórico | Razón platos/pedido | Estado |
+|--------|------------------:|-----------------:|--------------------:|--------|
+| {Cocina} | 688 | 512 | 1.34 | normal |
+| {Cocina} | 402 | 180 | 2.23 | ⚠ revisar |
+````
+
+## Plantilla — Reporte de insumos
+
+Escribir en `proyecciones/YYYY-MM-DD-insumos.md`:
+
+````markdown
+# Proyección de Insumos — {País}
+**Semana:** {lunes} al {domingo}
+**Generado:** {fecha}
+
+## Resumen
+
+Para **{N} platos** proyectados se necesitan **{M} insumos distintos**,
+con un costo estimado de **{MONEDA} {MONTO}**.
+
+{Una línea de contexto: feriados, cambios de menú, cocinas fuera de servicio.}
+
+## Insumos a comprar — consolidado
+
+| Insumo | Cantidad | Unidad | Costo estimado |
+|--------|---------:|--------|---------------:|
+| Pechuga de pollo fresca | 145.8 | kg | S/ 2,752 |
+| Lechuga americana | 62.3 | kg | S/ 311 |
+| **Total** | | | **S/ 12,480** |
+
+## Desglose por cocina
+
+### {Nombre de cocina} — {ciudad}
+
+| Insumo | Cantidad | Unidad |
+|--------|---------:|--------|
+
+## Empaques y descartables
+
+| Artículo | Cantidad | Unidad |
+|----------|---------:|--------|
+| CT5 | 3,540 | unidades |
+
+## ⚠️ Alertas
+
+- {Platos sin receta cargada — excluidos del cálculo de insumos}
+- {Platos nuevos estimados por familia — cuántos y cuánto peso representan}
+- {Cocinas cuya razón platos/pedido se movió >15%}
+- {Cocinas con calificación en caída sostenida}
+- {Insumos con merma alta (>30%) donde conviene revisar el proveedor}
+
+*(Si no hay alertas: "Sin alertas para esta semana.")*
+
+## Supuestos usados
+
+- Ventas históricas: {N} semanas de `meal_orders_daily`, hasta {fecha}
+- Menú de la semana: {leído del sistema / entregado por Ops el {fecha}}
+- Participación por plato: mediana por día de semana, feriados excluidos
+- Platos nuevos: {N} estimados por tipo de proteína
+- Merma: convención "dividir por (1 − merma)" — {validada / pendiente de validar} con Chef
+- Costos: {N} platos con costo oficial, {M} estimados desde ingredientes
 ````
 
 ### Reglas de los reportes
@@ -256,8 +457,10 @@ Escribir en `proyecciones/YYYY-MM-DD-platos.md`:
 2. **Kilos con 1 decimal, unidades enteras.** Nadie compra 145.8347 kg.
 3. **Redondear platos hacia arriba.** Que sobre, no que falte.
 4. **Toda alerta debe decir qué hacer**, no solo qué pasó.
-5. **Siempre incluir la sección de supuestos.** Si alguien cuestiona un número, debe poder rastrear de dónde salió.
+5. **Siempre incluir la sección de supuestos.** Si alguien cuestiona un número, debe poder
+   rastrear de dónde salió.
 6. **Nunca inventar un dato faltante.** Marcarlo como "sin datos" y explicarlo.
+7. **Decir siempre de dónde salió cada cantidad** — la columna `Base` no es opcional.
 
 ---
 
@@ -265,20 +468,37 @@ Escribir en `proyecciones/YYYY-MM-DD-platos.md`:
 
 Mencionarlas en el reporte cuando apliquen:
 
-1. **El mix de platos es un supuesto de Ops, no un dato histórico.** El espejo no enlaza pedidos con platos, así que la precisión del reporte depende de qué tan bueno sea el plan de menú. Si Ops se equivoca en el mix, los insumos se equivocan proporcionalmente.
+1. **La frecuencia que usa esta skill es por plato, no por cliente.** Es decir: cuántas veces se
+   ofrece un plato y cuánto vende cuando se ofrece. Eso es lo que reparte el volumen entre los
+   platos del día, y es lo correcto para el mix.
+   La frecuencia **por cliente** (cada cuántos días vuelve a pedir una persona) es computable —
+   `orders.customer_id` cruzado con `customers.plan_actual` — pero pertenece a la proyección de
+   **volumen**, no a la del mix: cambia cuántos platos salen en total, no cuál se lleva cada uno.
+   Ese trabajo va en `proyeccion-demanda`. Hoy esa skill todavía no la usa.
 
-2. **No hay rendimiento histórico por cocina.** El espejo solo trae `stores.catering_level` como foto actual, sin histórico semanal. Las mermas usadas son las **estándar de la receta**, iguales para todas las cocinas. Si una cocina tiene merma sistemáticamente distinta, este reporte no lo captura — eso vive en la BD MySQL de producción y requiere VPN.
+2. **El rendimiento de cocina es parcial.** De `catering_daily_metrics` solo sirven `orders` y
+   `rating_average`; el ratio de incidencias y el porcentaje de rutas tardías están vacíos a
+   propósito. Y la merma usada es la **estándar de la receta**, igual para todas las cocinas: si una
+   cocina tiene merma sistemáticamente distinta, este reporte no lo captura.
 
-3. **`price_level` es un precio referencial de la receta**, no el precio de compra vigente. Los costos son estimaciones de orden de magnitud, no cotizaciones.
+3. **La calificación del plato es por sede, no por cocina.** No se puede atribuir un plato mal
+   calificado a una cocina puntual.
 
-4. **No considera inventario existente.** El reporte dice cuánto se necesita, no cuánto hay que comprar descontando stock. Ops debe restar lo que ya tiene en cámara.
+4. **`price_level` es un precio referencial de la receta**, no el precio de compra vigente. Los
+   costos son estimaciones de orden de magnitud, no cotizaciones.
 
-5. **No considera promociones ni campañas.** Si Marketing lanza algo, el mix real puede desviarse mucho.
+5. **No considera inventario existente.** El reporte dice cuánto se necesita, no cuánto hay que
+   comprar descontando stock. Ops debe restar lo que ya tiene en cámara.
+
+6. **No considera promociones ni campañas.** Si Marketing lanza algo grande, el mix real puede
+   desviarse mucho. Preguntarles antes de una semana clave.
 
 ---
 
 ## Después de entregar
 
-1. Decir dónde quedaron los archivos y **resumir en una línea** lo principal (total de platos y costo estimado).
+1. Decir dónde quedaron los archivos y **resumir en una línea** lo principal (total de platos y
+   costo estimado).
 2. Recordar que son `.md` — se pegan directo en Notion o Slack.
-3. Si algún plato quedó sin receta o el mix no sumaba 100%, **decirlo explícitamente** en vez de entregar los números sin contexto.
+3. Si hubo platos sin receta, platos estimados por familia, o cocinas con contraste fuera de rango,
+   **decirlo explícitamente** en vez de entregar los números sin contexto.

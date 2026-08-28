@@ -3,6 +3,9 @@
 Plugin para el equipo de Operaciones de Manzana Verde. No trae hooks ni servidores MCP:
 son skills que producen **reportes en Markdown**, listos para pegar en Notion o Discord.
 
+> **Para instalarlo: [INSTALAR.md](./INSTALAR.md).** Leé la advertencia sobre el nombre del
+> marketplace si ya tenés `mv-dev` — los dos repos declaran el mismo y choca.
+
 ## Skills
 
 | Skill | Para qué sirve | Cómo se pide |
@@ -10,8 +13,11 @@ son skills que producen **reportes en Markdown**, listos para pegar en Notion o 
 | `proyeccion-demanda` | Pedidos esperados por día y por cocina, con ajuste por feriados y registro de acierto | "proyección de pedidos", "cuántos pedidos esperamos", "precantidades" |
 | `proyeccion-insumos` | Cuántos platos preparar y cuántos kilos de cada ingrediente comprar, con merma, empaques y costo | "cuánto comprar", "lista de compras", "explosión de recetas" |
 
-`proyeccion-insumos` necesita el **menú planificado de la semana** como entrada: el espejo
-de datos no relaciona pedidos con platos, así que ese dato lo aporta Operaciones.
+`proyeccion-insumos` saca el mix de platos del **histórico real de ventas por plato**
+(`meal_orders_daily` cruzado con `daily_menu`), así que no hay que pasarle porcentajes.
+Lo que sí va a pedir es **qué platos van cada día**. En la práctica lo pide siempre: `daily_menu`
+no trae fechas futuras (verificado el 24/08/2026), así que el menú de la semana que se proyecta
+todavía no está cargado. Son los platos, nunca los porcentajes.
 
 ## Instalación
 
